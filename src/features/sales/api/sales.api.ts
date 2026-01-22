@@ -1,7 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
-import type { TCreateSaleCredentials, TSale, TSaleDetail } from '../model/sales.types'
-import { saleDtoSchema, saleOneDetailSchema } from '../model/sales.schemas'
-import type { TId } from '@/shared/types'
+import type { TDefaultResponse } from '@/shared/types'
+import type { TSale, TCreateSale } from '../model/sales.types'
 
 const salesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -11,23 +10,16 @@ const salesApi = baseApi.injectEndpoints({
         method: 'GET',
       }),
       providesTags: ['Sales'],
-      transformResponse: (response: unknown) => saleDtoSchema.array().parseAsync(response),
     }),
-    createSale: build.mutation<void, TCreateSaleCredentials>({
-      query: (data) => ({
+    createSale: build.mutation<TSale & TDefaultResponse, TCreateSale>({
+      query: (body) => ({
         url: '/sales',
         method: 'POST',
-        body: data,
+        body,
       }),
       invalidatesTags: ['Sales'],
     }),
-    getOneDetailSale: build.query<TSaleDetail, TId>({
-      query: (id) => ({
-        url: `/sales/${id}`,
-        method: 'GET',
-      }),
-      transformResponse: (response: unknown) => saleOneDetailSchema.parseAsync(response),
-    }),
   }),
 })
-export const { useCreateSaleMutation, useGetSalesQuery, useGetOneDetailSaleQuery } = salesApi
+
+export const { useCreateSaleMutation, useGetSalesQuery } = salesApi

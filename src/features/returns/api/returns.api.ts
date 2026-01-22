@@ -1,32 +1,31 @@
 import { baseApi } from '@/shared/request/baseApi'
-import type { TReturnCreateCredentials, TReturnDto, TReturnOneDetail } from '../model/returns.types'
-import { returnDtoSchema, returnOneDetailSchema } from '../model/returns.schemas'
+import type { TDefaultResponse } from '@/shared/types'
+import type { TReturn, TCreateReturn } from '../model/returns.types'
 
 const returnsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    getReturns: build.query<TReturnDto[], void>({
+    getReturns: build.query<TReturn[], void>({
       query: () => ({
         url: '/returns',
         method: 'GET',
       }),
       providesTags: ['Returns'],
-      transformErrorResponse: (response: unknown) => returnDtoSchema.array().parseAsync(response),
     }),
-    createReturn: build.mutation<void, TReturnCreateCredentials>({
-      query: (data) => ({
+    createReturn: build.mutation<TReturn & TDefaultResponse, TCreateReturn>({
+      query: (body) => ({
         url: '/returns',
         method: 'POST',
-        body: data,
+        body,
       }),
       invalidatesTags: ['Returns'],
     }),
-    getOneDetailReturn: build.query<TReturnOneDetail, number>({
+    getOneDetailReturn: build.query<TReturn, number>({
       query: (id) => ({
         url: `/returns/${id}`,
         method: 'GET',
       }),
-      transformResponse: (response: unknown) => returnOneDetailSchema.parseAsync(response),
     }),
   }),
 })
+
 export const { useCreateReturnMutation, useGetReturnsQuery, useGetOneDetailReturnQuery } = returnsApi

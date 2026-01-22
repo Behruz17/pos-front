@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router'
-import { LogOut, Package, History, ShoppingCart, Warehouse, X, Users } from 'lucide-react'
+import { LogOut, Package, History, ShoppingCart, Warehouse, X, Users, CreditCard, RotateCcw } from 'lucide-react'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { paths } from '@/app/routers/constants'
 import { useLogoutMutation } from '@/features/auth/api/auth.api'
@@ -27,7 +27,16 @@ const navigation = [
     label: 'транзакция',
     icon: ShoppingCart,
   },
-
+  {
+    to: paths.sales(),
+    label: 'Продажи',
+    icon: CreditCard,
+  },
+  {
+    to: paths.returns(),
+    label: 'Возвраты',
+    icon: RotateCcw,
+  },
   {
     to: paths.stockHistory(),
     label: 'История изменений',
@@ -37,6 +46,11 @@ const navigation = [
     to: paths.customers(),
     label: 'Клиенты',
     icon: History,
+  },
+  {
+    to: paths.stores(),
+    label: 'Магазины',
+    icon: Package,
   },
   {
     to: paths.workers(),

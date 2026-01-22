@@ -13,6 +13,7 @@ import CustomerDetailPage from '@/pages/CustomerDetailPage'
 import TransactionPage from '@/pages/TransactionPage'
 import SalesPage from '@/pages/SalesPage'
 import InventoryPage from '@/pages/InventoryPage'
+import { StoresPage } from '@/pages/StoresPage'
 
 export const router = createBrowserRouter([
   {
@@ -56,14 +57,21 @@ export const router = createBrowserRouter([
         element: <CustomersPage />,
       },
       {
+        path: paths.stores(),
+        element: <StoresPage />,
+      },
+      {
         path: paths.transaction(),
         element: <TransactionPage />,
       },
       {
-        path: paths.sales(':id'),
+        path: paths.sales(),
         element: <SalesPage />,
       },
-
+      {
+        path: paths.returns(),
+        element: <SalesPage />,
+      },
       {
         path: paths.customers(':id'),
         element: <CustomerDetailPage />,

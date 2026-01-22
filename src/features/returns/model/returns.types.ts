@@ -1,16 +1,28 @@
-import type z from 'zod'
-import type { returnDtoSchema, returnOneDetailSchema } from './returns.schemas'
-
-export type TReturnDto = z.infer<typeof returnDtoSchema>
-export type TReturnOneDetail = z.infer<typeof returnOneDetailSchema>
-
-export type TReturnCreateCredentials = {
-  customer_id?: number
-  sale_id: number | null
-  items: {
-    product_id: number
-    quantity: number
-    unit_price: string
-  }[]
+export interface TReturnItem {
+  id: number
+  product_id: number
+  product_name: string
+  manufacturer?: string
+  quantity: number
+  unit_price: number
+  total_price: number
 }
-export type TReturnItem = TReturnCreateCredentials['items'][0]
+
+export interface TReturn {
+  id: number
+  customer_id?: number
+  customer_name?: string
+  sale_id?: number
+  store_id?: number
+  items: TReturnItem[]
+  created_at: string
+  created_by_name: string
+  total_amount: number
+}
+
+export interface TCreateReturn {
+  customer_id?: number
+  sale_id?: number
+  store_id?: number
+  items: Omit<TReturnItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
+}
