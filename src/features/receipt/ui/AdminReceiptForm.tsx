@@ -3,8 +3,9 @@ import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { useGetWarehousesQuery } from '@/features/warehouses/api/warehouses.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, PackagePlus, Copy } from 'lucide-react'
+import { Plus, Trash2, PackagePlus, Copy, Upload } from 'lucide-react'
 import type { TReceiptItem } from '../model/receipt.types'
+import * as XLSX from 'xlsx'
 
 const num = (v: string) => (v ? Number(v) : 0)
 const onlyNumber = (v: string) => /^\d*(\.\d*)?$/.test(v)
@@ -32,6 +33,33 @@ const emptyItem: TReceiptItem & { markup_percent: string } = {
   markup_percent: '',
 }
 
+// Define expected Excel column mapping
+interface ExcelReceiptItem {
+  // Russian column names
+  товар?: string
+  коробки?: string | number
+  'шт.'?: string | number
+  'отд шт'?: string | number
+  'цена зак'?: string | number
+  'наценка %'?: string | number
+  'цена прод'?: string | number
+  сумма?: string | number
+  'вес кг'?: string | number
+  'объем м3'?: string | number
+  // English column names (alternative)
+  product_name?: string
+  product_id?: string
+  boxes_qty?: string | number
+  pieces_per_box?: string | number
+  loose_pieces?: string | number
+  purchase_cost?: string | number
+  markup_percent?: string | number
+  selling_price?: string | number
+  amount?: string | number
+  weight_kg?: string | number
+  volume_cbm?: string | number
+}
+
 const AdminReceiptForm = () => {
   const { data: warehouses = [] } = useGetWarehousesQuery()
   const { data: products = [] } = useGetProductsQuery()
@@ -43,6 +71,9 @@ const AdminReceiptForm = () => {
   // State for bulk operations
   const [bulkAddCount, setBulkAddCount] = useState(5)
   const [isBulkAdding, setIsBulkAdding] = useState(false)
+
+  // State for Excel import
+  const [excelImporting, setExcelImporting] = useState(false)
 
   // Refs for Excel-like navigation
   const inputRefs = useRef<Map<number, Map<string, HTMLInputElement | HTMLSelectElement | null>>>(new Map())
@@ -127,6 +158,105 @@ const AdminReceiptForm = () => {
       addMultipleItems(bulkAddCount)
       setIsBulkAdding(false)
     }
+  }
+
+  // Handle Excel file import
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setExcelImporting(true)
+
+    try {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+
+        // Assuming the first sheet contains the data
+        const sheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[sheetName]
+
+        // Convert to JSON
+        const jsonData: ExcelReceiptItem[] = XLSX.utils.sheet_to_json(worksheet)
+
+        if (jsonData.length === 0) {
+          alert('Excel файл не содержит данных или имеет неправильный формат')
+          setExcelImporting(false)
+          return
+        }
+
+        // Process imported data
+        const processedItems = jsonData.map((row) => {
+          // Find product by name if product_id is not provided
+          let productId = row.product_id || row.товар || ''
+          if (!productId && (row.product_name || row.товар)) {
+            const productName = row.product_name || row.товар
+            const foundProduct = products.find((p) => p.name.toLowerCase() === productName!.toLowerCase())
+            if (foundProduct) {
+              productId = foundProduct.id.toString()
+            } else {
+              // If exact match not found, try partial match
+              const partialMatch = products.find((p) => p.name.toLowerCase().includes(productName!.toLowerCase()))
+              if (partialMatch) {
+                productId = partialMatch.id.toString()
+              }
+            }
+          }
+
+          // Calculate derived values with support for both English and Russian column names
+          const purchaseCost = String(row.purchase_cost || row['цена зак'] || '0')
+          const markupPercent = String(row.markup_percent || row['наценка %'] || '0')
+          const boxesQty = String(row.boxes_qty || row.коробки || '0')
+          const piecesPerBox = String(row.pieces_per_box || row['шт.'] || '0')
+          const loosePieces = String(row.loose_pieces || row['отд шт'] || '0')
+          const sellingPrice = String(
+            row.selling_price || row['цена прод'] || calcSellingPrice(purchaseCost, markupPercent)
+          )
+          const amount = String(
+            row.amount || row.сумма || calcAmount(boxesQty, piecesPerBox, purchaseCost, loosePieces)
+          )
+          const weightKg = String(row.weight_kg || row['вес кг'] || '')
+          const volumeCbm = String(row.volume_cbm || row['объем м3'] || '')
+
+          return {
+            product_id: productId,
+            boxes_qty: boxesQty,
+            pieces_per_box: piecesPerBox,
+            loose_pieces: loosePieces,
+            weight_kg: weightKg,
+            volume_cbm: volumeCbm,
+            purchase_cost: purchaseCost,
+            selling_price: sellingPrice,
+            amount: amount,
+            markup_percent: markupPercent,
+          }
+        })
+
+        // Update the items state
+        setItems(processedItems)
+
+        setExcelImporting(false)
+        alert(`Импортировано ${processedItems.length} товаров из Excel файла`)
+      }
+
+      reader.onerror = () => {
+        alert('Ошибка при чтении Excel файла')
+        setExcelImporting(false)
+      }
+
+      reader.readAsArrayBuffer(file)
+    } catch (error) {
+      console.error('Error importing Excel:', error)
+      alert('Произошла ошибка при импорте Excel файла')
+      setExcelImporting(false)
+    }
+  }
+
+  // Trigger file input click
+  const triggerExcelImport = () => {
+    const fileInput = document.getElementById('excel-upload') as HTMLInputElement
+    fileInput?.click()
   }
 
   // Excel-like keyboard navigation
@@ -260,7 +390,18 @@ const AdminReceiptForm = () => {
         <button onClick={clearAllItems} className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm">
           <Trash2 size={14} /> Очистить все
         </button>
+
+        <button
+          onClick={triggerExcelImport}
+          disabled={excelImporting}
+          className="flex items-center gap-1 text-purple-600 hover:text-purple-800 text-sm"
+        >
+          <Upload size={14} /> {excelImporting ? 'Импорт...' : 'Импорт из Excel'}
+        </button>
       </div>
+
+      {/* Hidden file input for Excel import */}
+      <input id="excel-upload" type="file" accept=".xlsx, .xls" onChange={handleExcelImport} className="hidden" />
 
       {/* Items table header */}
       <div className="grid grid-cols-12 gap-2 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
@@ -289,19 +430,29 @@ const AdminReceiptForm = () => {
                     }
                   }
                 }}
-                value={products.find((p) => p.id.toString() === item.product_id)?.name || item.product_id}
+                value={
+                  item.product_id
+                    ? products.find((p) => p.id.toString() === item.product_id)?.name || item.product_id
+                    : ''
+                }
                 onChange={(e) => {
                   const query = e.target.value
-                  // Update the input field with the query
-                  updateItem(i, { product_id: query })
+                  // Check if this is a product name that needs to be converted to ID
+                  const foundProduct = products.find((p) => p.name === query)
+                  if (foundProduct) {
+                    updateItem(i, { product_id: foundProduct.id.toString() })
+                  } else {
+                    // Update the input field with the query
+                    updateItem(i, { product_id: query })
+                  }
                 }}
                 onKeyDown={(e) => {
                   // Handle Enter key to select the first suggestion if available
                   if (e.key === 'Enter') {
                     const filteredProducts = products.filter(
                       (p) =>
-                        p.name.toLowerCase().includes(item.product_id.toLowerCase()) &&
-                        p.name.toLowerCase() !== item.product_id.toLowerCase() // Don't re-select the same product
+                        p.name.toLowerCase().includes((item.product_id || '').toLowerCase()) &&
+                        p.name.toLowerCase() !== (item.product_id || '').toLowerCase() // Don't re-select the same product
                     )
                     if (filteredProducts.length > 0) {
                       updateItem(i, { product_id: filteredProducts[0].id.toString() })
@@ -318,17 +469,19 @@ const AdminReceiptForm = () => {
                 autoFocus={i === 0}
               />
               {item.product_id &&
-                products.filter(
-                  (p) =>
-                    p.name.toLowerCase().includes(item.product_id.toLowerCase()) &&
-                    p.name.toLowerCase() !== item.product_id.toLowerCase()
-                ).length > 0 && (
+                products.filter((p) => {
+                  const searchValue = item.product_id || ''
+                  return (
+                    p.name.toLowerCase().includes(searchValue.toLowerCase()) &&
+                    p.name.toLowerCase() !== searchValue.toLowerCase()
+                  )
+                }).length > 0 && (
                   <div className="absolute z-10 w-full bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto mt-1">
                     {products
                       .filter(
                         (p) =>
-                          p.name.toLowerCase().includes(item.product_id.toLowerCase()) &&
-                          p.name.toLowerCase() !== item.product_id.toLowerCase()
+                          p.name.toLowerCase().includes((item.product_id || '').toLowerCase()) &&
+                          p.name.toLowerCase() !== (item.product_id || '').toLowerCase()
                       )
                       .slice(0, 5)
                       .map((p) => (
