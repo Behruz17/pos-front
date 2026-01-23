@@ -55,6 +55,8 @@ export const baseApi = createApi({
     'HistoryStock',
     'Returns',
     'ProductDetails',
+    'Suppliers',
+    'Stores',
   ],
   endpoints: () => ({}),
 })

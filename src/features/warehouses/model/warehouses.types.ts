@@ -14,4 +14,5 @@ export type TGetWarehousesProductsCredentials = {
   warehouseId: TId
   productId: TId
 }
+export type TGetWarehousesSuppliers = z.infer<typeof warehouseSuppliersSchema>
 export type TStock = TGetWarehousesProductDetail['stock']

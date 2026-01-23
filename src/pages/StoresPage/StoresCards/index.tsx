@@ -1,53 +1,67 @@
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
-import { useDeleteWarehouseMutation, useGetWarehousesQuery, usePutWarehouseMutation } from '@/features/warehouses/api/warehouses.api'
-import CreateWarehouseModal from '@/widgets/modals/CreateWarehouse'
-import DeleteModal from '@/widgets/modals/DeleteModal'
-import EditWarehouseModal from '@/widgets/modals/EditWarehouseModal'
-import { Plus, Warehouse, Trash2, Pencil } from 'lucide-react'
+import { 
+  useGetStoresQuery, 
+  useDeleteStoreMutation 
+} from '@/features/stores/api/stores.api'
 import { useState } from 'react'
-import type { TWarehouse } from '@/features/warehouses/model/warehouses.types'
+import { Package, Trash2, Pencil, Plus } from 'lucide-react'
+import DeleteModal from '@/widgets/modals/DeleteModal'
+import { Modal } from '@/widgets/modals/Modal'
+import { StoreForm } from '../StoreForm'
+import { useNavigate } from 'react-router'
+import { paths } from '@/app/routers/constants'
 
-export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => {
-  const { data: warehouses = [], isLoading } = useGetWarehousesQuery()
-  const [deleteWarehouse, { isLoading: deleteLoading }] = useDeleteWarehouseMutation()
-  const [putWarehouse] = usePutWarehouseMutation()
+interface Store {
+  id: number
+  name: string
+  city: string | null
+  warehouse_id: number
+  warehouse_name: string
+}
+
+export const StoresCards = () => {
+  const { data: stores = [], isLoading } = useGetStoresQuery()
+  const [deleteStore, { isLoading: deleteLoading }] = useDeleteStoreMutation()
   const [modalOpen, setModalOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<number | null>(null)
-  const [editWarehouse, setEditWarehouse] = useState<TWarehouse | null>(null)
+  const [editingStore, setEditingStore] = useState<Store | null>(null)
   const { isAdmin } = useAuth()
+  const navigate = useNavigate()
+
   const handleDelete = async () => {
     if (!deleteId) return
     try {
-      await deleteWarehouse(deleteId).unwrap()
+      await deleteStore(deleteId).unwrap()
       setDeleteId(null)
     } catch (error) {
-      console.error('Failed to delete warehouse:', error)
+      console.error('Failed to delete store:', error)
     }
   }
 
-  const handleUpdate = async (id: number, name: string) => {
-    try {
-      await putWarehouse({ id, data: { name } }).unwrap()
-      setEditWarehouse(null)
-    } catch (error) {
-      console.error('Failed to update warehouse:', error)
-    }
+  const openCreateModal = () => {
+    setEditingStore(null)
+    setModalOpen(true)
+  }
+
+  const openEditModal = (store: Store) => {
+    setEditingStore(store)
+    setModalOpen(true)
   }
 
   if (isLoading) {
-    return <div className="text-sm text-slate-500">Загрузка складов…</div>
+    return <div className="text-sm text-slate-500">Загрузка магазинов…</div>
   }
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex justify-between gap-3">
         <div>
-          <h2 className="text-base sm:text-lg font-semibold text-slate-800">Выберите склад</h2>
-          <p className="text-xs sm:text-sm text-slate-500">Список доступных складов</p>
+          <h2 className="text-base sm:text-lg font-semibold text-slate-800">Выберите магазин</h2>
+          <p className="text-xs sm:text-sm text-slate-500">Список доступных магазинов</p>
         </div>
         {isAdmin && (
           <button
-            onClick={() => setModalOpen(true)}
+            onClick={openCreateModal}
             className="
             cursor-pointer
         inline-flex items-center gap-1
@@ -62,7 +76,7 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
       "
           >
             <Plus size={16} />
-            <span className="hidden sm:inline ">Добавить склад</span>
+            <span className="hidden sm:inline ">Добавить магазин</span>
           </button>
         )}
       </div>
@@ -73,17 +87,17 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
             grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5
           "
       >
-        {warehouses.map((w) => (
+        {stores.map((store) => (
           <button
-            key={w.id}
-            onClick={() => isAdmin && onSelect(w.id)}
+            key={store.id}
+            onClick={() => navigate(paths.storeCustomers(store.id.toString()))}
             className="
                 cursor-pointer
                 group relative rounded-xl sm:rounded-2xl
                 border border-slate-200 bg-white
                 p-4 sm:p-5
                 text-left transition
-  
+          
                 hover:border-blue-500 hover:shadow-md
                 active:scale-[0.98]
                 focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -97,19 +111,23 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
                   group-hover:bg-blue-50 transition
                 "
             >
-              <Warehouse size={22} className="text-slate-400 group-hover:text-blue-600 transition" />
+              <Package size={22} className="text-slate-400 group-hover:text-blue-600 transition" />
             </div>
 
-            <div className="mt-3 sm:mt-4 font-semibold text-sm sm:text-base text-slate-800">{w.name}</div>
+            <div className="mt-3 sm:mt-4 font-semibold text-sm sm:text-base text-slate-800">{store.name}</div>
 
-            <div className="mt-1 text-xs text-slate-400">Нажмите для просмотра</div>
+            <div className="mt-1 text-xs text-slate-400">{store.warehouse_name}</div>
+            
+            {store.city && (
+              <div className="mt-1 text-xs text-slate-500">{store.city}</div>
+            )}
 
             {/* Action Icons */}
             <div className="absolute top-2 right-2 flex gap-1">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  setEditWarehouse(w)
+                  openEditModal(store)
                 }}
                 className="
                   p-1.5 rounded-lg
@@ -125,7 +143,7 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  setDeleteId(w.id)
+                  setDeleteId(store.id)
                 }}
                 className="
                   p-1.5 rounded-lg
@@ -142,19 +160,31 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
           </button>
         ))}
       </div>
-      {modalOpen && <CreateWarehouseModal onClose={() => setModalOpen(false)} />}
+      
+      {modalOpen && (
+        <Modal
+          title={editingStore ? 'Редактировать магазин' : 'Добавить магазин'}
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false)
+            setEditingStore(null)
+          }}
+        >
+          <StoreForm
+            store={editingStore}
+            onClose={() => {
+              setModalOpen(false)
+              setEditingStore(null)
+            }}
+          />
+        </Modal>
+      )}
+      
       {deleteId && (
         <DeleteModal 
           onClose={() => setDeleteId(null)} 
           isLoading={deleteLoading}
           onDelete={handleDelete}
-        />
-      )}
-      {editWarehouse && (
-        <EditWarehouseModal 
-          warehouse={editWarehouse}
-          onClose={() => setEditWarehouse(null)}
-          onUpdate={handleUpdate}
         />
       )}
     </div>

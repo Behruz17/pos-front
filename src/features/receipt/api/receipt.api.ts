@@ -18,7 +18,7 @@ const receiptApi = baseApi.injectEndpoints({
         url: '/inventory/receipts',
         method: 'GET',
       }),
-      transformResponse: (response) => receiptGtoSchema.array().parseAsync(response),
+      transformResponse: (response) => receiptGtoSchema.array().parse(response),
       providesTags: ['Receipts'],
     }),
     getOneReceipt: build.query<TOneReceiptGto, string>({
@@ -26,7 +26,7 @@ const receiptApi = baseApi.injectEndpoints({
         url: `/inventory/receipt/${id}`,
         method: 'GET',
       }),
-      transformResponse: (response) => oneReceiptGtoSchema.parseAsync(response),
+      transformResponse: (response) => oneReceiptGtoSchema.parse(response),
     }),
   }),
 })

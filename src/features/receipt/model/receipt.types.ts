@@ -3,6 +3,7 @@ import { oneReceiptGtoSchema, receiptGtoSchema } from './receipt.schemas'
 
 export type TReceiptItem = {
   product_id: string
+  product_name: string
   boxes_qty: string
   pieces_per_box: string
   loose_pieces: string
@@ -28,6 +29,7 @@ export type TReceiptItemResponse = {
 }
 export type TCreateReceipt = {
   warehouse_id: number
+  supplier_id: number
   items: TReceiptItem[]
 }
 

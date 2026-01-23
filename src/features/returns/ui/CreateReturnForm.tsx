@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, createElement } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, Trash2, PackageMinus } from 'lucide-react'
 import { useCreateReturnMutation } from '../api/returns.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { useGetStoresQuery } from '@/features/stores/api/stores.api'
 import { useGetCustomersQuery } from '@/features/customers/api/customers.api'
 import { useGetSalesQuery } from '@/features/sales/api/sales.api'
-// import { toast } from 'sonner'
+import { toast } from 'sonner'
 
 interface TReturnItem {
   product_id: number
@@ -37,32 +37,33 @@ export const CreateReturnForm = () => {
   const saleRef = useRef<HTMLSelectElement>(null)
   const storeRef = useRef<HTMLSelectElement>(null)
 
-  // Define the ref object type
-  type ItemRefs = {
-    productInputRef: React.RefObject<HTMLInputElement>
-    productDropdownRef: React.RefObject<HTMLDivElement>
-    quantityRef: React.RefObject<HTMLInputElement>
-    priceRef: React.RefObject<HTMLInputElement>
-    removeButtonRef: React.RefObject<HTMLButtonElement>
-  }
-
-  const refs = useRef<ItemRefs[]>([])
+  // Initialize refs array properly
+  const refs = useRef<{
+    productInputRef: React.MutableRefObject<HTMLInputElement | null>
+    productDropdownRef: React.MutableRefObject<HTMLDivElement | null>
+    quantityRef: React.MutableRefObject<HTMLInputElement | null>
+    priceRef: React.MutableRefObject<HTMLInputElement | null>
+    removeButtonRef: React.MutableRefObject<HTMLButtonElement | null>
+  }[]>([])
 
   // Initialize refs array
   useEffect(() => {
-    // Initialize refs for each item
-    for (let i = refs.current.length; i < items.length; i++) {
-      refs.current.push({
-        productInputRef: { current: null },
-        productDropdownRef: { current: null },
-        quantityRef: { current: null },
-        priceRef: { current: null },
-        removeButtonRef: { current: null },
-      })
+    // Make sure refs array has the same length as items array
+    if (refs.current.length < items.length) {
+      // Add new refs for new items
+      for (let i = refs.current.length; i < items.length; i++) {
+        refs.current[i] = {
+          productInputRef: { current: null },
+          productDropdownRef: { current: null },
+          quantityRef: { current: null },
+          priceRef: { current: null },
+          removeButtonRef: { current: null },
+        }
+      }
+    } else if (refs.current.length > items.length) {
+      // Trim refs array if items were removed
+      refs.current = refs.current.slice(0, items.length)
     }
-
-    // Trim refs array if items were removed
-    refs.current = refs.current.slice(0, items.length)
   }, [items])
 
   const updateItem = (index: number, patch: Partial<TReturnItem>) => {
@@ -150,7 +151,7 @@ export const CreateReturnForm = () => {
   }
 
   // Filter products based on input
-  const getFilteredProducts = (searchTerm: string, rowIndex: number) => {
+  const getFilteredProducts = (searchTerm: string) => {
     if (!searchTerm) return products
     return products.filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
   }
@@ -261,7 +262,7 @@ export const CreateReturnForm = () => {
         </div>
 
         {items.map((item, i) => {
-          const filteredProducts = getFilteredProducts(item.product_name, i)
+          const filteredProducts = getFilteredProducts(item.product_name)
           return (
             <div key={i} className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative">
               <div className="col-span-12 lg:col-span-5 relative">
@@ -270,14 +271,14 @@ export const CreateReturnForm = () => {
                   ref={refs.current[i]?.productInputRef}
                   type="text"
                   value={item.product_name}
-                  onChange={(e) => updateItem(i, { product_name: e.target.value })}
+                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0 })}
                   onKeyDown={(e) => handleKeyDown(e, i, 'product')}
                   placeholder="Поиск товара..."
                   className="w-full border rounded-lg px-3 py-2.5"
                 />
 
                 {/* Dropdown for product suggestions */}
-                {item.product_name && filteredProducts.length > 0 && (
+                {!item.product_id && item.product_name && filteredProducts.length > 0 && (
                   <div
                     ref={refs.current[i]?.productDropdownRef}
                     className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
@@ -299,10 +300,17 @@ export const CreateReturnForm = () => {
                 <label className="text-xs text-gray-500 lg:hidden">Количество</label>
                 <input
                   ref={refs.current[i]?.quantityRef}
-                  type="number"
-                  min="1"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={item.quantity === 0 ? '' : item.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/^0+/, '') || '0';
+                    const numValue = Number(value);
+                    if (!isNaN(numValue) && numValue >= 0) {
+                      updateItem(i, { quantity: numValue });
+                    }
+                  }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />
@@ -312,11 +320,17 @@ export const CreateReturnForm = () => {
                 <label className="text-xs text-gray-500 lg:hidden">Цена за единицу</label>
                 <input
                   ref={refs.current[i]?.priceRef}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={item.unit_price}
-                  onChange={(e) => updateItem(i, { unit_price: Number(e.target.value) })}
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*(.[0-9]+)?"
+                  value={item.unit_price === 0 ? '' : item.unit_price}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/^0+(?=\d)/, '');
+                    const numValue = Number(value);
+                    if (!isNaN(numValue) && numValue >= 0) {
+                      updateItem(i, { unit_price: numValue });
+                    }
+                  }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'price')}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />

@@ -3,11 +3,12 @@ import type {
   TGetWarehousesProductDetail,
   TGetWarehousesProducts,
   TGetWarehousesProductsCredentials,
+  TGetWarehousesSuppliers,
   TMutateWarehouse,
   TPostWarehouseSuccess,
   TWarehouse,
 } from '../model/warehouses.types'
-import { warehouseProductsDetailSchema, warehouseProductsSchema, warehouseSchema } from '../model/warehouses.schemas'
+import { warehouseProductsDetailSchema, warehouseProductsSchema, warehouseSchema, warehouseSuppliersSchema } from '../model/warehouses.schemas'
 import type { TDefaultResponse, TId } from '@/shared/types'
 
 const warehousesApi = baseApi.injectEndpoints({
@@ -35,6 +36,14 @@ const warehousesApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Warehouses'],
     }),
+    putWarehouse: build.mutation<TPostWarehouseSuccess, { id: number; data: TMutateWarehouse }>({
+      query: ({ id, data }) => ({
+        url: `/warehouses/${id}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Warehouses'],
+    }),
     getWarehouseProducts: build.query<TGetWarehousesProducts, TId>({
       query: (id) => ({
         url: `/warehouses/${id}/products`,
@@ -51,12 +60,21 @@ const warehousesApi = baseApi.injectEndpoints({
 
       transformResponse: (response: unknown) => warehouseProductsDetailSchema.parseAsync(response),
     }),
+    getWarehouseSuppliers: build.query<TGetWarehousesSuppliers, TId>({
+      query: (warehouseId) => ({
+        url: `/warehouses/${warehouseId}/suppliers`,
+        method: 'GET',
+      }),
+      transformResponse: (response: unknown) => warehouseSuppliersSchema.parseAsync(response),
+    }),
   }),
 })
 export const {
   useGetWarehousesQuery,
   usePostWarehouseMutation,
   useDeleteWarehouseMutation,
+  usePutWarehouseMutation,
   useGetWarehouseProductsDetailQuery,
   useGetWarehouseProductsQuery,
+  useGetWarehouseSuppliersQuery,
 } = warehousesApi

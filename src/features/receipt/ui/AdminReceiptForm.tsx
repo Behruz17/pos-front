@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useGetProductsQuery } from '@/features/products/api/products.api'
+import { useGetProductsQuery, usePostProductMutation } from '@/features/products/api/products.api'
 import { useGetWarehousesQuery } from '@/features/warehouses/api/warehouses.api'
+import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, PackagePlus, Copy } from 'lucide-react'
 import type { TReceiptItem } from '../model/receipt.types'
+import { toast } from 'sonner'
 
 const num = (v: string) => (v ? Number(v) : 0)
 const onlyNumber = (v: string) => /^\d*(\.\d*)?$/.test(v)
@@ -21,6 +23,7 @@ const calcAmount = (boxes: string, perBox: string, purchase: string, loose: stri
 
 const emptyItem: TReceiptItem & { markup_percent: string } = {
   product_id: '',
+  product_name: '',
   boxes_qty: '',
   pieces_per_box: '',
   loose_pieces: '0',
@@ -35,7 +38,11 @@ const emptyItem: TReceiptItem & { markup_percent: string } = {
 const AdminReceiptForm = () => {
   const { data: warehouses = [] } = useGetWarehousesQuery()
   const { data: products = [] } = useGetProductsQuery()
+  const { data: suppliers = [] } = useGetSuppliersQuery()
   const [createReceipt, { isLoading }] = usePostReceiptMutation()
+  const [createProduct, { isLoading: isCreatingProduct }] = usePostProductMutation()
+
+  const [supplierId, setSupplierId] = useState('')
 
   const [warehouseId, setWarehouseId] = useState('')
   const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
@@ -79,6 +86,19 @@ const AdminReceiptForm = () => {
 
         const next = { ...item, ...patch }
 
+        // Update product_name when product_id changes
+        if (patch.product_id && !patch.product_name) {
+          const product = products.find(p => p.id.toString() === patch.product_id)
+          if (product) {
+            next.product_name = product.name
+          }
+        }
+        
+        // If product_id is not a number, it means it's a new product name
+        if (patch.product_id && isNaN(Number(patch.product_id))) {
+          next.product_name = patch.product_id; // Ensure product_name matches the entered name
+        }
+
         const selling = calcSellingPrice(next.purchase_cost, next.markup_percent)
 
         return {
@@ -117,8 +137,8 @@ const AdminReceiptForm = () => {
   }
 
   const isInvalid = useMemo(
-    () => !warehouseId || items.some((i) => !i.product_id || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost),
-    [warehouseId, items]
+    () => !warehouseId || !supplierId || items.some((i) => !i.product_id || !i.product_name || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost || Number(i.boxes_qty) < 0 || Number(i.pieces_per_box) < 0 || Number(i.purchase_cost) <= 0),
+    [warehouseId, supplierId, items]
   )
 
   // Handle bulk addition
@@ -185,13 +205,51 @@ const AdminReceiptForm = () => {
   const onSubmit = async () => {
     if (isInvalid) return
 
-    await createReceipt({
-      warehouse_id: Number(warehouseId),
-      items,
-    }).unwrap()
+    try {
+      // Check if any items have non-existent products and create them first
+      let updatedItems = [...items];
+      
+      for (let i = 0; i < updatedItems.length; i++) {
+        const item = updatedItems[i];
+        // Check if the product_id is actually a name (not a number)
+        const productIdNum = Number(item.product_id);
+        if (isNaN(productIdNum)) {
+          // This means user entered a product name that doesn't exist yet
+          // Create the product first
+          const formData = new FormData();
+          formData.append('name', item.product_id); // Use the entered name as product name
+          
+          try {
+            const result = await createProduct(formData).unwrap();
+            // Update the item with the newly created product ID
+            updatedItems[i] = {
+              ...item,
+              product_id: result.id.toString(),
+              product_name: result.name,
+            };
+            toast.success(`Продукт "${result.name}" успешно создан`);
+          } catch (error) {
+            console.error('Error creating product:', error);
+            toast.error('Ошибка при создании продукта');
+            return; // Stop the process if product creation fails
+          }
+        }
+      }
 
-    setWarehouseId('')
-    setItems([emptyItem])
+      await createReceipt({
+        warehouse_id: Number(warehouseId),
+        supplier_id: Number(supplierId),
+        items: updatedItems,
+      }).unwrap()
+
+      toast.success('Приход успешно оформлен');
+      setWarehouseId('');
+      setSupplierId('');
+      setItems([emptyItem]);
+    } catch (error) {
+      console.error('Error creating receipt:', error);
+      toast.error('Ошибка при оформлении прихода');
+    }
   }
 
   return (
@@ -207,6 +265,22 @@ const AdminReceiptForm = () => {
           {warehouses.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Поставщик</label>
+        <select
+          value={supplierId}
+          onChange={(e) => setSupplierId(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2.5"
+        >
+          <option value="">Выберите поставщика</option>
+          {suppliers.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
             </option>
           ))}
         </select>
@@ -289,11 +363,11 @@ const AdminReceiptForm = () => {
                     }
                   }
                 }}
-                value={products.find((p) => p.id.toString() === item.product_id)?.name || item.product_id}
+                value={item.product_name || item.product_id}
                 onChange={(e) => {
                   const query = e.target.value
                   // Update the input field with the query
-                  updateItem(i, { product_id: query })
+                  updateItem(i, { product_id: query, product_name: query })
                 }}
                 onKeyDown={(e) => {
                   // Handle Enter key to select the first suggestion if available
@@ -304,9 +378,15 @@ const AdminReceiptForm = () => {
                         p.name.toLowerCase() !== item.product_id.toLowerCase() // Don't re-select the same product
                     )
                     if (filteredProducts.length > 0) {
-                      updateItem(i, { product_id: filteredProducts[0].id.toString() })
+                      updateItem(i, { product_id: filteredProducts[0].id.toString(), product_name: filteredProducts[0].name })
                       e.preventDefault() // Prevent moving to next field
                     } else {
+                      // Check if the entered value is not a product name that exists
+                      const existingProduct = products.find(p => p.name.toLowerCase() === item.product_id.toLowerCase());
+                      if (!existingProduct) {
+                        // User entered a new product name, keep it as is
+                        updateItem(i, { product_id: item.product_id, product_name: item.product_id });
+                      }
                       handleKeyDown(e, i, 'product_id') // Continue with normal navigation
                     }
                   } else {
@@ -490,11 +570,11 @@ const AdminReceiptForm = () => {
         </button>
 
         <button
-          disabled={isInvalid || isLoading}
+          disabled={isInvalid || isLoading || isCreatingProduct}
           onClick={onSubmit}
           className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl disabled:bg-gray-400"
         >
-          <PackagePlus /> Оформить приход
+          <PackagePlus /> {isCreatingProduct ? 'Создание продукта...' : 'Оформить приход'}
         </button>
 
         <div className="ml-auto text-sm text-gray-600">Всего товаров: {items.length}</div>

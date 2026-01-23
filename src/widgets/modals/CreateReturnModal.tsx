@@ -49,11 +49,11 @@ export const CreateReturnModal = ({
 
     await createReturn({
       customer_id: customerId ? Number(customerId) : undefined,
-      sale_id: null,
+      sale_id: undefined,
       items: items.map((i) => ({
         product_id: Number(i.product_id),
         quantity: Number(i.quantity),
-        unit_price: i.unit_price,
+        unit_price: Number(i.unit_price),
       })),
     }).unwrap()
 

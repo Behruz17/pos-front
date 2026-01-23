@@ -8,6 +8,7 @@ import type {
   TUpdateBalanceCustomerSuccessResponse,
   TUpdateCustomerCredentials,
   TUpdateCustomersSuccessResponse,
+  TCustomerSales,
 } from '../model/customers.types'
 import { customerDtoSchema, oneCustomerDtoSchema } from '../model/customers.schemas'
 import type { TDefaultResponse, TId } from '@/shared/types'
@@ -67,6 +68,13 @@ const customersApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: unknown) => oneCustomerDtoSchema.parseAsync(response),
     }),
+    getCustomerSales: build.query<TCustomerSales, { customerId: number, storeId: number }>({
+      query: ({ customerId, storeId }) => ({
+        url: `/customers/${customerId}/sales/${storeId}`,
+        method: 'GET',
+      }),
+      providesTags: ['Customers'],
+    }),
   }),
 })
 export const {
@@ -77,4 +85,5 @@ export const {
   useUpdateCustomerMutation,
   useUpdateBalanceCustomerMutation,
   useGetOneUserDetailQuery,
+  useGetCustomerSalesQuery,
 } = customersApi

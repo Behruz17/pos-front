@@ -1,9 +1,9 @@
-import { StoresTable } from '@/features/stores/ui/StoresTable'
+import { StoresCards } from './StoresCards'
 
 export const StoresPage = () => {
   return (
     <div className="w-full">
-      <StoresTable />
+      <StoresCards />
     </div>
   )
 }

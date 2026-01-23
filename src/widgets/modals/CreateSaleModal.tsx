@@ -2,6 +2,7 @@ import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { Modal } from './Modal'
 import { useGetCustomersQuery } from '@/features/customers/api/customers.api'
 import { useCreateSaleMutation } from '@/features/sales/api/sales.api'
+import { useGetStoresQuery } from '@/features/stores/api/stores.api'
 import { useMemo, useState } from 'react'
 import { Plus, ShoppingCart, Trash2, AlertTriangle } from 'lucide-react'
 
@@ -28,9 +29,11 @@ export const CreateSaleModal = ({
 }) => {
   const { data: products = [] } = useGetProductsQuery()
   const { data: customers = [] } = useGetCustomersQuery()
+  const { data: stores = [] } = useGetStoresQuery()
   const [createSale, { isLoading }] = useCreateSaleMutation()
 
   const [customerId, setCustomerId] = useState('')
+  const [storeId, setStoreId] = useState(stores.length > 0 ? String(stores[0].id) : '1')
   const [items, setItems] = useState<TSaleItemForm[]>([emptyItem])
   const [showTotalStock, setShowTotalStock] = useState('')
 
@@ -58,10 +61,11 @@ export const CreateSaleModal = ({
 
     await createSale({
       customer_id: customerId ? Number(customerId) : undefined,
+      store_id: Number(storeId),
       items: items.map((i) => ({
         product_id: Number(i.product_id),
         quantity: Number(i.quantity),
-        unit_price: i.last_unit_price,
+        unit_price: Number(i.last_unit_price),
       })),
     }).unwrap()
 
@@ -73,20 +77,37 @@ export const CreateSaleModal = ({
   return (
     <Modal open={open} onClose={onClose} title="Новая продажа">
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-600">Клиент</label>
-          <select
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">Демо-клиент</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.full_name}
-              </option>
-            ))}
-          </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Клиент</label>
+            <select
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">Демо-клиент</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Магазин</label>
+            <select
+              value={storeId}
+              onChange={(e) => setStoreId(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>
+                  {store.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="space-y-4">

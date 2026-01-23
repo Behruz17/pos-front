@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router'
-import { LogOut, Package, History, ShoppingCart, Warehouse, X, Users, CreditCard, RotateCcw } from 'lucide-react'
+import { LogOut, Package, History, ShoppingCart, Warehouse, X, Users, CreditCard, RotateCcw, Truck } from 'lucide-react'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { paths } from '@/app/routers/constants'
 import { useLogoutMutation } from '@/features/auth/api/auth.api'
@@ -13,9 +13,14 @@ type Props = {
 
 const navigation = [
   {
-    to: paths.home(),
+    to: paths.warehousesStock(),
     label: 'Склады',
     icon: Warehouse,
+  },
+  {
+    to: paths.products(),
+    label: 'Товары',
+    icon: Package,
   },
   {
     to: paths.receipt(),
@@ -32,11 +37,7 @@ const navigation = [
     label: 'Продажи',
     icon: CreditCard,
   },
-  {
-    to: paths.returns(),
-    label: 'Возвраты',
-    icon: RotateCcw,
-  },
+
   {
     to: paths.stockHistory(),
     label: 'История изменений',
@@ -56,6 +57,11 @@ const navigation = [
     to: paths.workers(),
     label: 'Пользователи',
     icon: Users,
+  },
+  {
+    to: paths.suppliers(),
+    label: 'Поставщики',
+    icon: Truck,
   },
 ]
 
@@ -99,35 +105,37 @@ const Sidebar = ({ sidebarOpen, toggleSidebar }: Props) => {
         </button>
       </div>
 
-      <nav className="mt-6 space-y-1">
-        {navigation.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={toggleSidebar}
-            className={({ isActive }) =>
+      <div className="mt-6 overflow-y-auto max-h-[calc(100vh-180px)] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <nav className="space-y-1">
+          {navigation.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={toggleSidebar}
+              className={({ isActive }) =>
+                `
+                group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
+                transition-all
+                ${isActive ? 'bg-blue-600/15 text-blue-400' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'}
               `
-              group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
-              transition-all
-              ${isActive ? 'bg-blue-600/15 text-blue-400' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'}
-            `
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span
-                  className={`
-                    h-8 w-1 rounded-full transition-all
-                    ${isActive ? 'bg-blue-500' : 'bg-transparent'}
-                  `}
-                />
-                <Icon size={18} />
-                <span>{label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={`
+                      h-8 w-1 rounded-full transition-all
+                      ${isActive ? 'bg-blue-500' : 'bg-transparent'}
+                    `}
+                  />
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+      </div>
 
       <div className="absolute bottom-0 w-full p-4 border-t border-slate-800">
         <button

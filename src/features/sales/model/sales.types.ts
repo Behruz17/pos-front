@@ -22,6 +22,7 @@ export interface TSale {
 export interface TCreateSale {
   customer_id?: number
   store_id: number
+  payment_status?: 'PAID' | 'DEBT'
   items: Omit<TSaleItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
 }
 

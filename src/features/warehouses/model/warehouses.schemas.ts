@@ -22,7 +22,14 @@ export const warehouseProductsSchema = z.object({
       purchase_cost: z.coerce.number(),
       selling_price: z.coerce.number(),
 
-      image: z.string(),
+      image: z
+        .string()
+        .nullable()
+        .transform(
+          (val) =>
+            val ??
+            'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
+        ),
       updated_at: z.string(),
     })
   ),
@@ -56,4 +63,19 @@ export const warehouseProductsDetailSchema = z.object({
 
     updated_at: z.string(),
   }),
+})
+
+export const warehouseSuppliersSchema = z.object({
+  warehouse: warehouseSchema,
+  suppliers: z.array(
+    z.object({
+      id: z.number(),
+      name: z.string(),
+      phone: z.string(),
+      balance: z.coerce.number(),
+      status: z.number(),
+      created_at: z.string(),
+      updated_at: z.string(),
+    })
+  ),
 })

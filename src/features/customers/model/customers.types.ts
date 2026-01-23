@@ -26,3 +26,34 @@ export type TUpdateBalanceCustomerSuccessResponse = {
 } & { id: TId }
 
 export type TCustomerDtoWithTransactions = z.infer<typeof oneCustomerDtoSchema>
+
+export interface TCustomerSale {
+  id: number;
+  customer_id: number;
+  customer_name: string;
+  total_amount: number;
+  payment_status: 'PAID' | 'DEBT';
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+  store_id: number;
+  warehouse_id: number;
+  store_name: string;
+  warehouse_name: string;
+}
+
+export interface TCustomerSales {
+  customer: {
+    id: number;
+    full_name: string;
+    phone: string;
+    city: string;
+    balance: number;
+  };
+  store: {
+    id: number;
+    name: string;
+    warehouse_id: number;
+  };
+  sales: TCustomerSale[];
+}

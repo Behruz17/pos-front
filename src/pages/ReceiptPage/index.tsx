@@ -1,11 +1,7 @@
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
-import { useGetReceiptsQuery } from '@/features/receipt/api/receipt.api'
 import AdminReceiptForm from '@/features/receipt/ui/AdminReceiptForm'
-import ReceiptsTable from '@/features/receipt/ui/ReceiptsTable'
-import { Loading } from '@/shared/ui/Loading'
 
 const ReceiptPage = () => {
-  const { data = [], isLoading } = useGetReceiptsQuery()
   const { isAdmin } = useAuth()
   return (
     <div className="max-w-6xl mx-auto space-y-10">
@@ -16,7 +12,7 @@ const ReceiptPage = () => {
 
       {isAdmin && <AdminReceiptForm />}
 
-      {isLoading ? <Loading text="приходов" /> : <ReceiptsTable data={data} />}
+      {/* Receipts list has been removed as requested */}
     </div>
   )
 }

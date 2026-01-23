@@ -14,6 +14,11 @@ import TransactionPage from '@/pages/TransactionPage'
 import SalesPage from '@/pages/SalesPage'
 import InventoryPage from '@/pages/InventoryPage'
 import { StoresPage } from '@/pages/StoresPage'
+import SuppliersPage from '@/pages/SuppliersPage'
+import WarehouseStockPage from '@/pages/WarehouseStockPage'
+import ProductsPage from '@/pages/ProductPage'
+import StoreCustomersPage from '@/pages/StoreCustomersPage'
+import CustomerSalesPage from '@/pages/CustomerSalesPage'
 
 export const router = createBrowserRouter([
   {
@@ -57,6 +62,14 @@ export const router = createBrowserRouter([
         element: <CustomersPage />,
       },
       {
+        path: paths.warehousesStock(),
+        element: <WarehouseStockPage />,
+      },
+      {
+        path: paths.products(),
+        element: <ProductsPage />,
+      },
+      {
         path: paths.stores(),
         element: <StoresPage />,
       },
@@ -72,6 +85,15 @@ export const router = createBrowserRouter([
         path: paths.returns(),
         element: <SalesPage />,
       },
+      {
+        path: paths.customerSales(':customerId', ':storeId'),
+        element: <CustomerSalesPage />,      },
+      {
+        path: paths.storeCustomers(':storeId'),
+        element: <StoreCustomersPage />,      },
+      {
+        path: paths.suppliers(),
+        element: <SuppliersPage />,      },
       {
         path: paths.customers(':id'),
         element: <CustomerDetailPage />,

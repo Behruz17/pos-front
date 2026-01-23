@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TStore, TCreateStore, TUpdateStore } from '../model/stores.types'
+import type { TStore, TCreateStore, TUpdateStore, TStoreWithCustomers } from '../model/stores.types'
 
 const storesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -34,7 +34,20 @@ const storesApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Stores'],
     }),
+    getStoreCustomers: build.query<TStoreWithCustomers, number>({
+      query: (storeId) => ({
+        url: `/stores/${storeId}/customers`,
+        method: 'GET',
+      }),
+      providesTags: ['Stores'],
+    }),
   }),
 })
 
-export const { useGetStoresQuery, useCreateStoreMutation, useUpdateStoreMutation, useDeleteStoreMutation } = storesApi
+export const { 
+  useGetStoresQuery, 
+  useCreateStoreMutation, 
+  useUpdateStoreMutation, 
+  useDeleteStoreMutation,
+  useGetStoreCustomersQuery
+} = storesApi

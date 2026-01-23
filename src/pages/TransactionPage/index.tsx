@@ -39,7 +39,7 @@ const TransactionPage = () => {
 
   const handleRowClick = (id: number) => {
     if (tab === 'sales') {
-      navigate(paths.sales(id.toString()))
+      navigate(paths.salesId(id.toString()))
     } else {
       setViewId(id)
     }
