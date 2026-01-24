@@ -4,7 +4,7 @@ import { useGetWarehousesQuery } from '@/features/warehouses/api/warehouses.api'
 import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, PackagePlus, Copy, Upload } from 'lucide-react'
+import { Plus, Trash2, PackagePlus, Copy, Upload, Download } from 'lucide-react'
 import type { TReceiptItem } from '../model/receipt.types'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
@@ -73,7 +73,7 @@ const AdminReceiptForm = () => {
   const [supplierId, setSupplierId] = useState('')
 
   const [warehouseId, setWarehouseId] = useState('')
-  const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
+  const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem, emptyItem])
 
   // State for bulk operations
   const [bulkAddCount, setBulkAddCount] = useState(5)
@@ -81,6 +81,8 @@ const AdminReceiptForm = () => {
 
   // State for Excel import
   const [excelImporting, setExcelImporting] = useState(false)
+  // State for Excel export
+  const [excelExporting, setExcelExporting] = useState(false)
 
   // Refs for Excel-like navigation
   const inputRefs = useRef<Map<number, Map<string, HTMLInputElement | HTMLSelectElement | null>>>(new Map())
@@ -279,6 +281,48 @@ const AdminReceiptForm = () => {
     fileInput?.click()
   }
 
+  // Handle Excel file export
+  const handleExcelExport = () => {
+    setExcelExporting(true)
+    
+    try {
+      // Prepare data for export
+      const exportData = items.map((item, index) => ({
+        '#': index + 1,
+        'Товар': item.product_name || products.find(p => p.id.toString() === item.product_id)?.name || item.product_id || '',
+        'Коробки': item.boxes_qty || 0,
+        'Шт. в кор.': item.pieces_per_box || 0,
+        'Отд. шт.': item.loose_pieces || 0,
+        'Цена зак.': item.purchase_cost || 0,
+        'Наценка %': item.markup_percent || 0,
+        'Цена прод.': item.selling_price || 0,
+        'Сумма': item.amount || 0,
+        'Вес кг': item.weight_kg || '',
+        'Объем м3': item.volume_cbm || ''
+      }))
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары')
+      
+      // Generate filename with timestamp
+      const fileName = `receipt_items_${new Date().toISOString().split('T')[0]}.xlsx`
+      
+      // Export file
+      XLSX.writeFile(workbook, fileName)
+      
+      toast.success('Файл успешно экспортирован')
+      setExcelExporting(false)
+    } catch (error) {
+      console.error('Error exporting Excel:', error)
+      toast.error('Произошла ошибка при экспорте в Excel')
+      setExcelExporting(false)
+    }
+  }
+
   // Excel-like keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent, rowIndex: number, fieldName: string) => {
     // Handle Enter key to move to next row
@@ -472,6 +516,14 @@ const AdminReceiptForm = () => {
         >
           <Upload size={14} /> {excelImporting ? 'Импорт...' : 'Импорт из Excel'}
         </button>
+
+        <button
+          onClick={handleExcelExport}
+          disabled={excelExporting || items.length === 0}
+          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm"
+        >
+          <Download size={14} /> {excelExporting ? 'Экспорт...' : 'Экспорт в Excel'}
+        </button>
       </div>
 
       {/* Hidden file input for Excel import */}
@@ -491,7 +543,7 @@ const AdminReceiptForm = () => {
       </div>
 
       {items.map((item, i) => (
-        <div key={`${i}-${item.product_id}`} className="grid grid-cols-12 gap-2 bg-white border p-2 rounded-xl">
+        <div key={i} className="grid grid-cols-12 gap-2 bg-white border p-2 rounded-xl">
           <div className="col-span-12 lg:col-span-3">
             <label className="text-xs text-gray-500 lg:hidden">Товар</label>
             <div className="relative">
@@ -693,6 +745,12 @@ const AdminReceiptForm = () => {
             <input
               value={item.amount}
               readOnly
+              onFocus={() => {
+                // Add a new row when this input gets focus
+                if (i === items.length - 1) {
+                  addItem();
+                }
+              }}
               className="w-full border bg-gray-100 rounded px-2 py-1.5 text-sm"
               placeholder="0"
             />

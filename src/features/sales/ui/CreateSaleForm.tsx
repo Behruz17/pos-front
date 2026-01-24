@@ -316,6 +316,12 @@ export const CreateSaleForm = () => {
                     }
                   }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'price')}
+                  onFocus={() => {
+                    // Add a new row when this input gets focus in the last row
+                    if (i === items.length - 1) {
+                      addItem();
+                    }
+                  }}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />
               </div>
