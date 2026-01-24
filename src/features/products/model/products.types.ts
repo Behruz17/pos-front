@@ -13,6 +13,7 @@ export type TSaleItemForm = {
 export type TPostProductCredentials = {
   name: string
   manufacturer: string | null
+  product_code: string
   image: File | null
 }
 export type TPutProductCredentials = {

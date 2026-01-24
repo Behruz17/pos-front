@@ -90,6 +90,9 @@ export const ProductCard = ({
 
               <div className="mt-1 text-sm text-slate-500 space-y-0.5">
                 <div>
+                  Артикул: <span className="text-slate-700 font-mono">{product.product_code}</span>
+                </div>
+                <div>
                   Производитель: <span className="text-slate-700 font-medium">{product.manufacturer || '—'}</span>
                 </div>
 

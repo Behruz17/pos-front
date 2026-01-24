@@ -6,11 +6,12 @@ import { useState, useRef, useEffect } from 'react'
 interface ProductFormData {
   name: string
   manufacturer: string
+  product_code: string
   image: File | null
 }
 
 export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
-  const [products, setProducts] = useState<ProductFormData[]>([{ name: '', manufacturer: '', image: null }])
+  const [products, setProducts] = useState<ProductFormData[]>([{ name: '', manufacturer: '', product_code: '', image: null }])
   const [createProduct, { isLoading }] = usePostProductMutation()
   const [bulkAddCount, setBulkAddCount] = useState(5)
   const [isBulkAdding, setIsBulkAdding] = useState(false)
@@ -26,7 +27,7 @@ export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
     // Initialize refs for each item and each field
     products.forEach((_, index) => {
       const fieldMap = new Map<string, HTMLInputElement | null>()
-      const fieldNames = ['name', 'manufacturer']
+      const fieldNames = ['name', 'manufacturer', 'product_code']
 
       fieldNames.forEach((fieldName) => {
         fieldMap.set(fieldName, null)
@@ -49,25 +50,25 @@ export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
     )
   }
 
-  const addProduct = () => setProducts((p) => [...p, { name: '', manufacturer: '', image: null }])
+  const addProduct = () => setProducts((p) => [...p, { name: '', manufacturer: '', product_code: '', image: null }])
 
   const addMultipleProducts = (count: number) => {
     if (count <= 0 || count > 1000) return
 
-    const newProducts = Array(count).fill({ name: '', manufacturer: '', image: null })
+    const newProducts = Array(count).fill({ name: '', manufacturer: '', product_code: '', image: null })
     setProducts((prev) => [...prev, ...newProducts])
   }
 
   const removeProduct = (i: number) => setProducts((p) => p.filter((_, idx) => idx !== i))
 
   const duplicateRow = (index: number) => {
-    const productToDuplicate = { ...products[index] }
+    const productToDuplicate = { ...products[index] } // Spread all properties
     setProducts((prev) => [...prev, productToDuplicate])
   }
 
   const clearAllProducts = () => {
     if (window.confirm('Вы уверены, что хотите очистить все товары?')) {
-      setProducts([{ name: '', manufacturer: '', image: null }])
+      setProducts([{ name: '', manufacturer: '', product_code: '', image: null }])
     }
   }
 
@@ -78,7 +79,7 @@ export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
       e.preventDefault()
 
       // If it's the last field in the row, add a new row
-      const fieldOrder = ['name', 'manufacturer']
+      const fieldOrder = ['name', 'manufacturer', 'product_code']
       const currentIndex = fieldOrder.indexOf(fieldName)
 
       if (currentIndex === fieldOrder.length - 1) {
@@ -131,6 +132,7 @@ export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
 
       const formData = new FormData()
       formData.append('name', product.name)
+      formData.append('product_code', product.product_code)
       if (product.manufacturer.trim()) {
         formData.append('manufacturer', product.manufacturer)
       }
@@ -230,8 +232,9 @@ export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
 
         {/* Products table header */}
         <div className="grid grid-cols-12 gap-4 bg-slate-100 border p-3 rounded-lg font-semibold text-sm mb-2 hidden lg:grid">
-          <div className="col-span-5">Название товара</div>
-          <div className="col-span-5">Производитель</div>
+          <div className="col-span-4">Название товара</div>
+          <div className="col-span-3">Артикул</div>
+          <div className="col-span-3">Производитель</div>
           <div className="col-span-2">Изображение</div>
         </div>
 
@@ -258,7 +261,26 @@ export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
                 />
               </div>
 
-              <div className="col-span-12 lg:col-span-5">
+              <div className="col-span-12 lg:col-span-3">
+                <label className="text-xs text-slate-500 lg:hidden">Артикул</label>
+                <input
+                  ref={(el) => {
+                    if (el) {
+                      const rowMap = inputRefs.current.get(i)
+                      if (rowMap) {
+                        rowMap.set('product_code', el)
+                      }
+                    }
+                  }}
+                  value={product.product_code}
+                  onChange={(e) => updateProduct(i, { product_code: e.target.value })}
+                  onKeyDown={(e) => handleKeyDown(e, i, 'product_code')}
+                  placeholder="Артикул товара"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm"
+                />
+              </div>
+
+              <div className="col-span-12 lg:col-span-3">
                 <label className="text-xs text-slate-500 lg:hidden">Производитель</label>
                 <input
                   ref={(el) => {

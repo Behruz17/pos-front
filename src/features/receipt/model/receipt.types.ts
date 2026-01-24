@@ -4,6 +4,7 @@ import { oneReceiptGtoSchema, receiptGtoSchema } from './receipt.schemas'
 export type TReceiptItem = {
   product_id: string
   product_name: string
+  product_code: string
   boxes_qty: string
   pieces_per_box: string
   loose_pieces: string

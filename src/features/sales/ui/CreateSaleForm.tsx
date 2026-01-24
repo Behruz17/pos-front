@@ -274,6 +274,7 @@ export const CreateSaleForm = () => {
                         onClick={() => handleProductSelect(product.id, product.name, i)}
                       >
                         <div className="font-medium">{product.name}</div>
+                        <div className="text-xs text-gray-500">Артикул: {product.product_code}</div>
                       </div>
                     ))}
                   </div>

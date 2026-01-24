@@ -17,6 +17,7 @@ const EditProductModal = ({
   const [form, setForm] = useState({
     name: product.name,
     manufacturer: product.manufacturer ?? '',
+    product_code: product.product_code ?? '',
   })
 
   const [file, setFile] = useState<File | null>(null)
@@ -26,6 +27,7 @@ const EditProductModal = ({
     const fd = new FormData()
 
     fd.append('name', form.name)
+    fd.append('product_code', form.product_code)
     if (form.manufacturer) {
       fd.append('manufacturer', form.manufacturer)
     }
@@ -79,6 +81,12 @@ const EditProductModal = ({
 
         <div className="space-y-3">
           <Field label="Название" value={form.name} onChange={(v) => setForm((s) => ({ ...s, name: v }))} />
+
+          <Field
+            label="Артикул"
+            value={form.product_code}
+            onChange={(v) => setForm((s) => ({ ...s, product_code: v }))}
+          />
 
           <Field
             label="Производитель"

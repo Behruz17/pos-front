@@ -27,6 +27,7 @@ export const oneReceiptGtoSchema = z.object({
       id: z.number(),
       product_id: z.number(),
       product_name: z.string(),
+      product_code: z.string(),
       manufacturer: z.string().nullable(),
       image: z.string().nullable(),
       boxes_qty: z.number().nullable(),

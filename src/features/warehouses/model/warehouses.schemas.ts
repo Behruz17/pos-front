@@ -12,6 +12,7 @@ export const warehouseProductsSchema = z.object({
       id: z.number(),
       product_id: z.number(),
       product_name: z.string(),
+      product_code: z.string(),
       manufacturer: z.string().nullable(),
 
       total_pieces: z.coerce.number(),
@@ -49,6 +50,7 @@ export const warehouseProductsDetailSchema = z.object({
           'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
       ),
     name: z.string(),
+    product_code: z.string(),
     manufacturer: z.string().nullable(),
     created_at: z.string(),
   }),

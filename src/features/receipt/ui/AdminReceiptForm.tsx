@@ -25,6 +25,7 @@ const calcAmount = (boxes: string, perBox: string, purchase: string, loose: stri
 const emptyItem: TReceiptItem & { markup_percent: string } = {
   product_id: '',
   product_name: '',
+  product_code: '',
   boxes_qty: '',
   pieces_per_box: '',
   loose_pieces: '0',
@@ -95,6 +96,7 @@ const AdminReceiptForm = () => {
       const fieldMap = new Map<string, HTMLInputElement | HTMLSelectElement | null>()
       const fieldNames = [
         'product_id',
+        'product_code',
         'boxes_qty',
         'pieces_per_box',
         'loose_pieces',
@@ -117,17 +119,19 @@ const AdminReceiptForm = () => {
 
         const next = { ...item, ...patch }
 
-        // Update product_name when product_id changes
+        // Update product_name and product_code when product_id changes
         if (patch.product_id && !patch.product_name) {
           const product = products.find(p => p.id.toString() === patch.product_id)
           if (product) {
             next.product_name = product.name
+            next.product_code = product.product_code || ''
           }
         }
         
         // If product_id is not a number, it means it's a new product name
         if (patch.product_id && isNaN(Number(patch.product_id))) {
           next.product_name = patch.product_id; // Ensure product_name matches the entered name
+          next.product_code = ''; // Reset product_code for new products
         }
 
         const selling = calcSellingPrice(next.purchase_cost, next.markup_percent)
@@ -156,6 +160,7 @@ const AdminReceiptForm = () => {
     const itemToDuplicate = { ...items[index] }
     // Reset IDs and calculated fields
     itemToDuplicate.product_id = ''
+    itemToDuplicate.product_code = '' // Reset product_code for new item
     itemToDuplicate.selling_price = ''
     itemToDuplicate.amount = ''
     setItems((prev) => [...prev, itemToDuplicate])
@@ -168,7 +173,7 @@ const AdminReceiptForm = () => {
   }
 
   const isInvalid = useMemo(
-    () => !warehouseId || !supplierId || items.some((i) => !i.product_id || !i.product_name || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost || Number(i.boxes_qty) < 0 || Number(i.pieces_per_box) < 0 || Number(i.purchase_cost) <= 0),
+    () => !warehouseId || !supplierId || items.some((i) => !i.product_id || !i.product_name || (!i.product_code && isNaN(Number(i.product_id))) || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost || Number(i.boxes_qty) < 0 || Number(i.pieces_per_box) < 0 || Number(i.purchase_cost) <= 0),
     [warehouseId, supplierId, items]
   )
 
@@ -210,16 +215,23 @@ const AdminReceiptForm = () => {
         const processedItems = jsonData.map((row) => {
           // Find product by name if product_id is not provided
           let productId = row.product_id || row.товар || ''
+          let productName = ''
+          let productCode = ''
+          
           if (!productId && (row.product_name || row.товар)) {
-            const productName = row.product_name || row.товар
-            const foundProduct = products.find((p) => p.name.toLowerCase() === productName!.toLowerCase())
+            const nameToFind = row.product_name || row.товар
+            const foundProduct = products.find((p) => p.name.toLowerCase() === nameToFind!.toLowerCase())
             if (foundProduct) {
               productId = foundProduct.id.toString()
+              productName = foundProduct.name
+              productCode = foundProduct.product_code || ''
             } else {
               // If exact match not found, try partial match
-              const partialMatch = products.find((p) => p.name.toLowerCase().includes(productName!.toLowerCase()))
+              const partialMatch = products.find((p) => p.name.toLowerCase().includes(nameToFind!.toLowerCase()))
               if (partialMatch) {
                 productId = partialMatch.id.toString()
+                productName = partialMatch.name
+                productCode = partialMatch.product_code || ''
               }
             }
           }
@@ -241,6 +253,8 @@ const AdminReceiptForm = () => {
 
           return {
             product_id: productId,
+            product_name: productName,
+            product_code: productCode,
             boxes_qty: boxesQty,
             pieces_per_box: piecesPerBox,
             loose_pieces: loosePieces,
@@ -288,6 +302,7 @@ const AdminReceiptForm = () => {
       // If it's the last field in the row, add a new row
       const fieldOrder = [
         'product_id',
+        'product_code',
         'boxes_qty',
         'pieces_per_box',
         'loose_pieces',
@@ -348,6 +363,7 @@ const AdminReceiptForm = () => {
           // Create the product first
           const formData = new FormData();
           formData.append('name', item.product_id); // Use the entered name as product name
+          formData.append('product_code', item.product_code || ''); // Use the entered product code
           
           try {
             const result = await createProduct(formData).unwrap();
@@ -480,6 +496,7 @@ const AdminReceiptForm = () => {
       {/* Items table header */}
       <div className="grid grid-cols-12 gap-2 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
         <div className="col-span-3">Товар</div>
+        <div className="col-span-3">Артикул</div>
         <div className="col-span-1">Коробки</div>
         <div className="col-span-1">Шт. в кор.</div>
         <div className="col-span-1">Отд. шт.</div>
@@ -514,10 +531,10 @@ const AdminReceiptForm = () => {
                   // Check if this is a product name that needs to be converted to ID
                   const foundProduct = products.find((p) => p.name === query)
                   if (foundProduct) {
-                    updateItem(i, { product_id: foundProduct.id.toString() })
+                    updateItem(i, { product_id: foundProduct.id.toString(), product_code: '' }) // Reset product_code when selecting existing product
                   } else {
                     // Update the input field with the query
-                    updateItem(i, { product_id: query })
+                    updateItem(i, { product_id: query, product_code: '' }) // Reset product_code for new products
                   }
                 }}
                 onKeyDown={(e) => {
@@ -529,14 +546,14 @@ const AdminReceiptForm = () => {
                         p.name.toLowerCase() !== (item.product_id || '').toLowerCase() // Don't re-select the same product
                     )
                     if (filteredProducts.length > 0) {
-                      updateItem(i, { product_id: filteredProducts[0].id.toString(), product_name: filteredProducts[0].name })
+                      updateItem(i, { product_id: filteredProducts[0].id.toString(), product_name: filteredProducts[0].name, product_code: '' }) // Reset product_code when selecting existing product
                       e.preventDefault() // Prevent moving to next field
                     } else {
                       // Check if the entered value is not a product name that exists
                       const existingProduct = products.find(p => p.name.toLowerCase() === item.product_id.toLowerCase());
                       if (!existingProduct) {
                         // User entered a new product name, keep it as is
-                        updateItem(i, { product_id: item.product_id, product_name: item.product_id });
+                        updateItem(i, { product_id: item.product_id, product_name: item.product_id, product_code: '' }); // Reset product_code for new products
                       }
                       handleKeyDown(e, i, 'product_id') // Continue with normal navigation
                     }
@@ -568,7 +585,7 @@ const AdminReceiptForm = () => {
                         <div
                           key={p.id}
                           className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                          onMouseDown={() => updateItem(i, { product_id: p.id.toString() })}
+                          onMouseDown={() => updateItem(i, { product_id: p.id.toString(), product_code: '' })} // Reset product_code when selecting existing product
                         >
                           {p.name}
                         </div>
@@ -576,6 +593,24 @@ const AdminReceiptForm = () => {
                   </div>
                 )}
             </div>
+          </div>
+
+          <div className="col-span-12 lg:col-span-3">
+            <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
+            <input
+              ref={(el) => {
+                const rowMap = inputRefs.current.get(i)
+                if (rowMap) {
+                  rowMap.set('product_code', el)
+                }
+              }}
+              value={item.product_code}
+              onChange={(e) => updateItem(i, { product_code: e.target.value })}
+              onKeyDown={(e) => handleKeyDown(e, i, 'product_code')}
+              className="w-full border rounded px-2 py-1.5 text-sm"
+              placeholder="Введите артикул товара..."
+              disabled={!!item.product_id && !isNaN(Number(item.product_id))} // Disable if existing product is selected
+            />
           </div>
 
           <div className="col-span-6 lg:col-span-1">
@@ -698,7 +733,7 @@ const AdminReceiptForm = () => {
             />
           </div>
 
-          <div className="col-span-12 lg:col-span-2 flex gap-1 mt-1 lg:mt-0">
+          <div className="col-span-12 lg:col-span-1 flex gap-1 mt-1 lg:mt-0">
             <button
               onClick={() => duplicateRow(i)}
               className="p-2 text-blue-600 hover:bg-blue-100 rounded text-sm"

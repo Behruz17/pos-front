@@ -88,9 +88,14 @@ const ProductsPage = () => {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-800 truncate text-sm sm:text-base">{p.name}</h3>
-                    <p className="text-xs text-slate-500 mt-1 truncate">
-                      {p.manufacturer || <span className="text-slate-400">—</span>}
-                    </p>
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs text-slate-500 truncate">
+                        {p.manufacturer || <span className="text-slate-400">—</span>}
+                      </p>
+                      <div className="text-xs text-slate-500">
+                        <span className="text-slate-400">Артикул:</span> <span className="font-mono">{p.product_code}</span>
+                      </div>
+                    </div>
                   </div>
 
                   {isAdmin && (
@@ -171,6 +176,9 @@ const ProductsPage = () => {
                   Товар
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Артикул
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Производитель
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -213,6 +221,11 @@ const ProductsPage = () => {
                     </div>
                   </td>
 
+                  <td className="px-6 py-4">
+                    <div className="max-w-[150px]">
+                      <span className="text-sm font-mono">{p.product_code}</span>
+                    </div>
+                  </td>
                   <td className="px-6 py-4">
                     <div className="max-w-[150px]">
                       <span className={`text-sm ${p.manufacturer ? 'text-slate-600' : 'text-slate-400 italic'}`}>
@@ -294,7 +307,7 @@ const ProductsPage = () => {
 
               {!filtered.length && (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="py-16 text-center">
+                  <td colSpan={isAdmin ? 8 : 7} className="py-16 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
                         <Package className="w-6 h-6 text-slate-400" />

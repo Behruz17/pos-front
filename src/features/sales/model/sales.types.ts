@@ -2,6 +2,7 @@ export interface TSaleItem {
   id: number
   product_id: number
   product_name: string
+  product_code: string
   manufacturer?: string
   quantity: number
   unit_price: number
@@ -30,6 +31,7 @@ export interface TReturnItem {
   id: number
   product_id: number
   product_name: string
+  product_code: string
   manufacturer?: string
   quantity: number
   unit_price: number
