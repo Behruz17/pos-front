@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router'
 import { useGetCustomerSalesQuery } from '@/features/customers/api/customers.api'
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { CreditCard, Store, Package, User, Calendar, UserRound, Building } from 'lucide-react'
+import { CustomerSalesForm } from '@/features/sales/ui/CustomerSalesForm'
 
 export const CustomerSalesPage = () => {
   const { customerId, storeId } = useParams<{ customerId: string; storeId: string }>()
@@ -62,7 +63,7 @@ export const CustomerSalesPage = () => {
               
               <div className="flex items-center gap-2 pt-2">
                 <div className={`text-sm font-medium ${customer.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  Баланс: {customer.balance.toLocaleString()} ₽
+                  Баланс: {customer.balance.toLocaleString()}
                 </div>
               </div>
             </div>
@@ -116,7 +117,7 @@ export const CustomerSalesPage = () => {
               <div className="flex justify-between">
                 <span>Общая сумма покупок:</span>
                 <span className="font-medium">
-                  {sales.reduce((sum, sale) => sum + sale.total_amount, 0).toLocaleString()} ₽
+                  {sales.reduce((sum, sale) => sum + sale.total_amount, 0).toLocaleString()}
                 </span>
               </div>
               
@@ -143,6 +144,12 @@ export const CustomerSalesPage = () => {
       </div>
 
       {/* Sales List */}
+      {/* Sales Form */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-800 mb-4">Создать продажу</h2>
+        <CustomerSalesForm initialCustomerId={Number(customerId)} initialStoreId={Number(storeId)} />
+      </div>
+
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-800 mb-4">Список покупок</h2>
         
@@ -186,7 +193,7 @@ export const CustomerSalesPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                      {sale.total_amount.toLocaleString()} ₽
+                      {sale.total_amount.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs ${sale.payment_status === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>

@@ -1,11 +1,14 @@
 import { useGetWarehouseProductsQuery, useGetWarehouseSuppliersQuery } from '@/features/warehouses/api/warehouses.api'
 import { useGetSupplierOperationsQuery } from '@/features/suppliers/api/suppliers.api'
 import { SupplierPaymentModal } from '@/widgets/modals/SupplierPaymentModal';
+import { OperationDetailsModal } from '@/widgets/modals/OperationDetailsModal';
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { ProductImage } from '@/shared/ui/ProductImageю'
 import { Td, Th } from '@/shared/ui/Table'
-import { Package, Search, Truck, ArrowLeft, DollarSign } from 'lucide-react'
+import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import AdminReceiptForm from '@/features/receipt/ui/AdminReceiptForm'
+import { useAuth } from '@/features/auth/hooks/auth.hooks'
 
 export const WarehouseProducts = ({
   warehouseId,
@@ -18,9 +21,11 @@ export const WarehouseProducts = ({
 }) => {
   const { data, isLoading, isError, error } = useGetWarehouseProductsQuery(warehouseId)
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'products' | 'suppliers'>('products')
+  const [tab, setTab] = useState<'products' | 'suppliers' | 'receipt'>('products')
   const [selectedSupplier, setSelectedSupplier] = useState<{id: number, name: string} | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedOperation, setSelectedOperation] = useState<any>(null)
+  const { isAdmin } = useAuth()
 
   const { 
     data: suppliersData, 
@@ -39,17 +44,15 @@ export const WarehouseProducts = ({
     supplierId: selectedSupplier?.id || 0, 
     warehouseId 
   }, { 
-    skip: !selectedSupplier 
+    skip: !selectedSupplier,
+    refetchOnMountOrArgChange: true
   })
 
-  // Debug output for errors
-  if (isError) {
-    console.error('Error fetching warehouse products:', error);
-  }
-  
-  if (suppliersError) {
-    console.error('Error fetching warehouse suppliers:', suppliersErrorMsg);
-  }
+
+
+
+
+
 
   const products = useMemo(() => {
     if (!data) return []
@@ -60,7 +63,13 @@ export const WarehouseProducts = ({
     return <div className="text-sm text-slate-500">Загрузка…</div>
   }
 
-  if (!data) return null
+  if (isError) {
+    return <div className="text-sm text-red-500">Ошибка загрузки товаров</div>;
+  }
+
+  if (!data) {
+    return <div className="text-sm text-slate-500">На этом складе пока нет товаров</div>;
+  }
 
   const TabComponent = ({
     active,
@@ -124,6 +133,18 @@ export const WarehouseProducts = ({
           icon={<Truck size={16} />}
           label="Поставщики"
         />
+
+        {isAdmin && (
+          <TabComponent
+            active={tab === 'receipt'}
+            onClick={() => {
+              setTab('receipt');
+              setSelectedSupplier(null);
+            }}
+            icon={<PackagePlus size={16} />}
+            label="Приход"
+          />
+        )}
       </div>
 
       {tab === 'products' && (
@@ -238,7 +259,7 @@ export const WarehouseProducts = ({
             <div className="text-sm text-slate-500">Загрузка поставщиков…</div>
           ) : suppliersError ? (
             <div className="text-center py-10 text-red-500">
-              Ошибка загрузки поставщиков: {JSON.stringify(suppliersErrorMsg) || 'Неизвестная ошибка'}
+              Ошибка загрузки поставщиков
             </div>
           ) : suppliersData?.suppliers && suppliersData.suppliers.length > 0 ? (
             <div className="space-y-4">
@@ -342,10 +363,12 @@ export const WarehouseProducts = ({
             <div className="text-sm text-slate-500">Загрузка приходов…</div>
           ) : receiptsError ? (
             <div className="text-center py-10 text-red-500">
-              Ошибка загрузки операций: {JSON.stringify(receiptsErrorMsg) || 'Неизвестная ошибка'}
+              Ошибка загрузки операций
             </div>
           ) : receiptsData?.operations && receiptsData.operations.length > 0 ? (
             <div className="space-y-4">
+
+
               <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-xl">
                 <table className="w-full border-collapse">
                   <thead className="bg-slate-50">
@@ -358,7 +381,11 @@ export const WarehouseProducts = ({
                   </thead>
                   <tbody>
                     {receiptsData.operations.map((operation: any, index: number) => (
-                      <tr key={operation.id} className="border-t hover:bg-slate-50 transition">
+                      <tr 
+                        key={operation.id} 
+                        className="border-t hover:bg-slate-50 transition cursor-pointer"
+                        onClick={() => setSelectedOperation(operation)}
+                      >
                         <Td>
                           <div className="font-medium text-slate-800">{index + 1}</div>
                         </Td>
@@ -379,8 +406,13 @@ export const WarehouseProducts = ({
               
               {/* Mobile cards */}
               <div className="sm:hidden space-y-3">
+
                 {receiptsData.operations.map((operation: any) => (
-                  <div key={operation.id} className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                  <div 
+                    key={operation.id} 
+                    className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:bg-slate-50 transition"
+                    onClick={() => setSelectedOperation(operation)}
+                  >
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="font-medium text-slate-800">{operation.type === 'RECEIPT' ? 'Приход' : operation.type === 'PAYMENT' ? 'Оплата' : operation.type} #{operation.id}</div>
@@ -405,6 +437,19 @@ export const WarehouseProducts = ({
         </div>
       )}
 
+      {tab === 'receipt' && isAdmin && (
+        <div>
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-slate-800 mb-2">Приход товара на склад</h2>
+            <p className="text-sm text-slate-500">Оформление нового поступления товаров на {data?.warehouse.name}</p>
+          </div>
+          <AdminReceiptForm 
+            preselectedWarehouseId={warehouseId.toString()}
+            hideWarehouseSelection={true}
+          />
+        </div>
+      )}
+
       {selectedSupplier && (
         <SupplierPaymentModal
           supplierId={selectedSupplier.id}
@@ -416,6 +461,16 @@ export const WarehouseProducts = ({
             // Refresh the operations data after successful payment
             refetch();
           }}
+        />
+      )}
+
+      {selectedOperation && (
+        <OperationDetailsModal
+          isOpen={!!selectedOperation}
+          onClose={() => setSelectedOperation(null)}
+          operation={selectedOperation}
+          supplierId={selectedSupplier?.id || 0}
+          warehouseId={warehouseId}
         />
       )}
     </div>

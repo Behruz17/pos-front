@@ -19,6 +19,7 @@ import WarehouseStockPage from '@/pages/WarehouseStockPage'
 import ProductsPage from '@/pages/ProductPage'
 import StoreCustomersPage from '@/pages/StoreCustomersPage'
 import CustomerSalesPage from '@/pages/CustomerSalesPage'
+import MissingProductsPage from '@/pages/MissingProductsPage'
 
 export const router = createBrowserRouter([
   {
@@ -94,6 +95,9 @@ export const router = createBrowserRouter([
       {
         path: paths.suppliers(),
         element: <SuppliersPage />,      },
+      {
+        path: paths.missingProducts(),
+        element: <MissingProductsPage />,      },
       {
         path: paths.customers(':id'),
         element: <CustomerDetailPage />,

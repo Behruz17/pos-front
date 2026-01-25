@@ -15,9 +15,11 @@ const ProductsPage = () => {
   const [editProduct, setEditProduct] = useState<null | {
     id: number
     name: string
-    manufacturer: string
-    image: string
-    created_at: string
+    manufacturer?: string | null
+    product_code?: string | null
+    notification_threshold?: number
+    image?: string
+    created_at?: string
   }>(null)
 
   const [search, setSearch] = useState('')
@@ -106,6 +108,8 @@ const ProductsPage = () => {
                             id: p.id,
                             name: p.name,
                             manufacturer: p.manufacturer ?? '',
+                            product_code: p.product_code ?? '',
+                            notification_threshold: p.notification_threshold,
                             image: p.image,
                             created_at: p.created_at,
                           })
@@ -281,6 +285,8 @@ const ProductsPage = () => {
                               id: p.id,
                               name: p.name,
                               manufacturer: p.manufacturer ?? '',
+                              product_code: p.product_code ?? '',
+                              notification_threshold: p.notification_threshold,
                               image: p.image,
                               created_at: p.created_at,
                             })

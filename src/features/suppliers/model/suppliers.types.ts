@@ -28,7 +28,8 @@ export type TGetSupplierOperations = {
     warehouse_id: number
     warehouse_name: string
     sum: number
-    type: string
+    type: 'RECEIPT' | 'PAYMENT'
     date: string
+    receipt_id: number | null
   }>
 }

@@ -4,7 +4,7 @@ import { useGetWarehousesQuery } from '@/features/warehouses/api/warehouses.api'
 import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, PackagePlus, Copy, Upload, Download } from 'lucide-react'
+import { Plus, Trash2, PackagePlus, Copy, Upload, Download, RotateCw } from 'lucide-react'
 import type { TReceiptItem } from '../model/receipt.types'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
@@ -18,8 +18,8 @@ const calcSellingPrice = (purchase: string, markup: string) => {
 }
 
 const calcAmount = (boxes: string, perBox: string, purchase: string, loose: string) => {
-  if (!boxes || !perBox || !purchase || !loose) return ''
-  return ((num(boxes) + num(loose)) * num(perBox) * num(purchase)).toFixed(2)
+  if (!boxes || !perBox || !purchase) return ''
+  return ((num(boxes) * num(perBox) + num(loose)) * num(purchase)).toFixed(2)
 }
 
 const emptyItem: TReceiptItem & { markup_percent: string } = {
@@ -64,7 +64,14 @@ interface ExcelReceiptItem {
   volume_cbm?: string | number
 }
 
-const AdminReceiptForm = () => {
+const AdminReceiptForm = ({ 
+  preselectedWarehouseId,
+  hideWarehouseSelection 
+}: { 
+  preselectedWarehouseId?: string;
+  hideWarehouseSelection?: boolean;
+} = {}) => {
+
   const { data: warehouses = [] } = useGetWarehousesQuery()
   const { data: products = [] } = useGetProductsQuery()
   const { data: suppliers = [] } = useGetSuppliersQuery()
@@ -72,9 +79,16 @@ const AdminReceiptForm = () => {
   const [createProduct, { isLoading: isCreatingProduct }] = usePostProductMutation()
 
   const [supplierId, setSupplierId] = useState('')
-
-  const [warehouseId, setWarehouseId] = useState('')
-  const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem, emptyItem])
+    
+  const [warehouseId, setWarehouseId] = useState(preselectedWarehouseId || '')
+    
+  // Set warehouse ID when preselectedWarehouseId changes
+  useEffect(() => {
+    if (preselectedWarehouseId) {
+      setWarehouseId(preselectedWarehouseId)
+    }
+  }, [preselectedWarehouseId])
+  const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
 
   // State for bulk operations
   const [bulkAddCount, setBulkAddCount] = useState(5)
@@ -158,15 +172,7 @@ const AdminReceiptForm = () => {
 
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
-  const duplicateRow = (index: number) => {
-    const itemToDuplicate = { ...items[index] }
-    // Reset IDs and calculated fields
-    itemToDuplicate.product_id = ''
-    itemToDuplicate.product_code = '' // Reset product_code for new item
-    itemToDuplicate.selling_price = ''
-    itemToDuplicate.amount = ''
-    setItems((prev) => [...prev, itemToDuplicate])
-  }
+
 
   const clearAllItems = () => {
     if (window.confirm('Вы уверены, что хотите очистить все товары?')) {
@@ -174,18 +180,40 @@ const AdminReceiptForm = () => {
     }
   }
 
-  const isInvalid = useMemo(
-    () => !warehouseId || !supplierId || items.some((i) => !i.product_id || !i.product_name || (!i.product_code && isNaN(Number(i.product_id))) || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost || Number(i.boxes_qty) < 0 || Number(i.pieces_per_box) < 0 || Number(i.purchase_cost) <= 0),
-    [warehouseId, supplierId, items]
-  )
-
-  // Handle bulk addition
-  const handleBulkAdd = () => {
-    if (bulkAddCount > 0 && bulkAddCount <= 1000) {
-      addMultipleItems(bulkAddCount)
-      setIsBulkAdding(false)
+  // Function to check if a product code is duplicate for NEW products only
+  const isDuplicateCode = (index: number, code: string, productId: string) => {
+    if (!code.trim()) return false; // Empty codes are not considered duplicates
+    
+    // If this is an existing product (product_id is a number), don't check for duplicates
+    if (productId && !isNaN(Number(productId))) {
+      return false;
     }
+    
+    // Check against other items in the form (for new products only)
+    for (let i = 0; i < items.length; i++) {
+      if (i !== index) {
+        const otherItem = items[i];
+        // Only check items that are new products (not existing ones)
+        if (!otherItem.product_id || isNaN(Number(otherItem.product_id))) {
+          if (otherItem.product_code.trim() === code.trim()) {
+            return true;
+          }
+        }
+      }
+    }
+    
+    // Check against existing products from the database (for new products only)
+    if (products.some(existing => existing.product_code === code.trim())) {
+      return true;
+    }
+    
+    return false;
   }
+
+  const isInvalid = useMemo(
+    () => !supplierId || items.some((i) => !i.product_id || !i.product_name || !i.product_code || (isNaN(Number(i.product_id)) && !i.product_code.trim()) || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost || Number(i.boxes_qty) < 0 || Number(i.pieces_per_box) < 0 || Number(i.purchase_cost) <= 0),
+    [supplierId, items]
+  )
 
   // Handle Excel file import
   const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -392,7 +420,33 @@ const AdminReceiptForm = () => {
   }
 
   const onSubmit = async () => {
-    if (isInvalid) return
+    if (isInvalid) {
+      return;
+    }
+
+    // Additional check for new products - ensure product_code is provided
+    for (const item of items) {
+      if (isNaN(Number(item.product_id)) && !item.product_code.trim()) {
+        toast.error('Артикул обязателен при создании нового товара');
+        return;
+      }
+    }
+
+    if (!preselectedWarehouseId) {
+      toast.error('Склад не выбран');
+      return;
+    }
+
+    // Check for duplicate product codes in the form
+    const productCodes = items.map(item => item.product_code.trim()).filter(code => code !== '');
+    const uniqueCodes = new Set(productCodes);
+    if (productCodes.length !== uniqueCodes.size) {
+      toast.error('Ошибка: Обнаружены повторяющиеся артикулы в форме');
+      return;
+    }
+
+    // Skip checking for duplicate product codes against existing products
+    // Only check for duplicates within the form items themselves
 
     try {
       // Check if any items have non-existent products and create them first
@@ -400,6 +454,7 @@ const AdminReceiptForm = () => {
       
       for (let i = 0; i < updatedItems.length; i++) {
         const item = updatedItems[i];
+        
         // Check if the product_id is actually a name (not a number)
         const productIdNum = Number(item.product_id);
         if (isNaN(productIdNum)) {
@@ -426,14 +481,29 @@ const AdminReceiptForm = () => {
         }
       }
 
+      // Convert string values to numbers before sending (backend expects numbers)
+      const apiPayloadItems = updatedItems.map(item => ({
+        ...item,
+        product_id: Number(item.product_id),
+        boxes_qty: Number(item.boxes_qty),
+        pieces_per_box: Number(item.pieces_per_box),
+        loose_pieces: Number(item.loose_pieces),
+        weight_kg: item.weight_kg ? Number(item.weight_kg) : 0,
+        volume_cbm: item.volume_cbm ? Number(item.volume_cbm) : 0,
+        purchase_cost: Number(item.purchase_cost),
+        selling_price: Number(item.selling_price),
+        amount: Number(item.amount),
+        markup_percent: Number(item.markup_percent),
+      })) as any; // Type assertion since backend expects different types
+
       await createReceipt({
-        warehouse_id: Number(warehouseId),
+        warehouse_id: Number(preselectedWarehouseId), // Use preselected warehouse ID from props
         supplier_id: Number(supplierId),
-        items: updatedItems,
+        items: apiPayloadItems,
       }).unwrap()
 
       toast.success('Приход успешно оформлен');
-      setWarehouseId('');
+      setWarehouseId(''); // Reset warehouse ID
       setSupplierId('');
       setItems([emptyItem]);
     } catch (error) {
@@ -444,24 +514,9 @@ const AdminReceiptForm = () => {
 
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
-      <div>
-        <label className="text-sm font-medium">Склад</label>
-        <select
-          value={warehouseId}
-          onChange={(e) => setWarehouseId(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2.5"
-        >
-          <option value="">Выберите склад</option>
-          {warehouses.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-      </div>
 
       <div>
-        <label className="text-sm font-medium">Поставщик</label>
+        <label className="text-sm font-medium">Поставщик <span className="text-red-500">*</span></label>
         <select
           value={supplierId}
           onChange={(e) => setSupplierId(e.target.value)}
@@ -476,51 +531,8 @@ const AdminReceiptForm = () => {
         </select>
       </div>
 
-      {/* Bulk operations toolbar */}
+      {/* Operations toolbar */}
       <div className="flex flex-wrap gap-3 items-center p-3 bg-white rounded-lg border">
-        <span className="text-sm font-medium">Массовое добавление:</span>
-
-        {!isBulkAdding ? (
-          <button
-            onClick={() => setIsBulkAdding(true)}
-            className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
-          >
-            <Plus size={16} /> Добавить несколько строк
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="1"
-              max="1000"
-              value={bulkAddCount}
-              onChange={(e) => setBulkAddCount(Math.min(1000, Math.max(1, parseInt(e.target.value) || 1)))}
-              className="border rounded px-2 py-1 w-20"
-            />
-            <span>шт.</span>
-            <button onClick={handleBulkAdd} className="bg-blue-600 text-white px-3 py-1 rounded text-sm">
-              OK
-            </button>
-            <button onClick={() => setIsBulkAdding(false)} className="text-gray-500 hover:text-gray-700">
-              Отмена
-            </button>
-          </div>
-        )}
-
-        <button
-          onClick={() => addMultipleItems(10)}
-          className="flex items-center gap-1 text-green-600 hover:text-green-800 text-sm"
-        >
-          <Plus size={14} /> 10 строк
-        </button>
-
-        <button
-          onClick={() => addMultipleItems(50)}
-          className="flex items-center gap-1 text-green-600 hover:text-green-800 text-sm"
-        >
-          <Plus size={14} /> 50 строк
-        </button>
-
         <button onClick={clearAllItems} className="flex items-center gap-1 text-red-600 hover:text-red-800 text-sm">
           <Trash2 size={14} /> Очистить все
         </button>
@@ -548,7 +560,7 @@ const AdminReceiptForm = () => {
       {/* Items table header */}
       <div className="grid grid-cols-12 gap-2 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
         <div className="col-span-3">Товар</div>
-        <div className="col-span-3">Артикул</div>
+        <div className="col-span-3 lg:col-span-1">Артикул *</div>
         <div className="col-span-1">Коробки</div>
         <div className="col-span-1">Шт. в кор.</div>
         <div className="col-span-1">Отд. шт.</div>
@@ -556,7 +568,7 @@ const AdminReceiptForm = () => {
         <div className="col-span-1">Наценка %</div>
         <div className="col-span-1">Цена прод.</div>
         <div className="col-span-1">Сумма</div>
-        <div className="col-span-2">Действия</div>
+        <div className="col-span-1">Действия</div>
       </div>
 
       {items.map((item, i) => (
@@ -647,8 +659,8 @@ const AdminReceiptForm = () => {
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-3">
-            <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
+          <div className="col-span-6 lg:col-span-1">
+            <label className="text-xs text-gray-500 lg:hidden">Артикул *</label>
             <input
               ref={(el) => {
                 const rowMap = inputRefs.current.get(i)
@@ -659,10 +671,18 @@ const AdminReceiptForm = () => {
               value={item.product_code}
               onChange={(e) => updateItem(i, { product_code: e.target.value })}
               onKeyDown={(e) => handleKeyDown(e, i, 'product_code')}
-              className="w-full border rounded px-2 py-1.5 text-sm"
+              className={`w-full border rounded px-2 py-1.5 text-sm ${
+                isDuplicateCode(i, item.product_code, item.product_id)
+                  ? 'border-red-500 bg-red-50'
+                  : 'border-gray-300'
+              }`}
               placeholder="Введите артикул товара..."
+              required
               disabled={!!item.product_id && !isNaN(Number(item.product_id))} // Disable if existing product is selected
             />
+            {isDuplicateCode(i, item.product_code, item.product_id) && (
+              <p className="text-xs text-red-600 mt-1">Артикул уже существует</p>
+            )}
           </div>
 
           <div className="col-span-6 lg:col-span-1">
@@ -793,13 +813,6 @@ const AdminReceiptForm = () => {
 
           <div className="col-span-12 lg:col-span-1 flex gap-1 mt-1 lg:mt-0">
             <button
-              onClick={() => duplicateRow(i)}
-              className="p-2 text-blue-600 hover:bg-blue-100 rounded text-sm"
-              title="Копировать строку"
-            >
-              <Copy size={14} />
-            </button>
-            <button
               onClick={() => removeItem(i)}
               className="p-2 text-red-600 hover:bg-red-100 rounded text-sm"
               title="Удалить строку"
@@ -810,18 +823,30 @@ const AdminReceiptForm = () => {
         </div>
       ))}
 
-      <div className="flex flex-wrap gap-3 pt-4">
-        <button onClick={addItem} className="flex gap-2 text-blue-600">
-          <Plus /> Добавить товар
-        </button>
-
+      <div className="flex flex-wrap gap-3 pt-4 items-center">
         <button
           disabled={isInvalid || isLoading || isCreatingProduct}
           onClick={onSubmit}
-          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl disabled:bg-gray-400"
+          className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl disabled:bg-gray-400 hover:bg-blue-700 transition-colors disabled:cursor-not-allowed"
         >
-          <PackagePlus /> {isCreatingProduct ? 'Создание продукта...' : 'Оформить приход'}
+          {(isLoading || isCreatingProduct) ? (
+            <>
+              <RotateCw size={16} className="animate-spin" />
+              {isLoading ? 'Оформление прихода...' : 'Создание продукта...'}
+            </>
+          ) : (
+            <>
+              <PackagePlus size={16} />
+              Оформить приход
+            </>
+          )}
         </button>
+
+        {isInvalid && (
+          <div className="text-sm text-red-600 bg-red-50 px-3 py-1 rounded-lg">
+            Заполните все обязательные поля
+          </div>
+        )}
 
         <div className="ml-auto text-sm text-gray-600">Всего товаров: {items.length}</div>
       </div>

@@ -13,6 +13,7 @@ export const productDtoSchema = z.object({
   boxes_qty: z.number().nullish(),
   pieces_qty: z.number().nullish(),
   total_pieces: z.number().optional(),
+  notification_threshold: z.number().optional(),
   image: z
     .string()
     .nullable()

@@ -26,6 +26,7 @@ export const paths = {
   suppliers: () => `/suppliers`,
   suppliersId: (id: string) => `/suppliers/${id}`,
   storeCustomers: (storeId: string) => `/stores/${storeId}/customers`,
+  missingProducts: () => `/products/missing`,
   warehousesStock: () => `/warehouses/stock`,
   warehousesStockId: (id: string) => `/warehouses/stock/${id}`,
   productsId: (id: string) => `/products/${id}`,

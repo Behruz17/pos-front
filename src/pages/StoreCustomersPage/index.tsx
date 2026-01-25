@@ -64,7 +64,7 @@ export const StoreCustomersPage = () => {
                   
                   <div className="text-right">
                     <div className={`text-sm font-medium ${customer.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {customer.balance.toLocaleString()} ₽
+                      {customer.balance.toLocaleString()}
                     </div>
                     <div className="text-xs text-slate-500">Баланс</div>
                   </div>

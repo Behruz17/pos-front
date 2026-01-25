@@ -25,6 +25,16 @@ export const supplierOperationsSchema = z.object({
       sum: z.coerce.number(),
       type: z.string(),
       date: z.string(),
+      receipt_id: z.number().nullable(),
+    }).refine((operation) => {
+      // receipt_id is required for RECEIPT operations, optional for PAYMENT operations
+      if (operation.type === 'RECEIPT') {
+        return operation.receipt_id !== null && operation.receipt_id !== undefined;
+      }
+      return true; // PAYMENT operations can have null receipt_id
+    }, {
+      message: 'receipt_id is required for RECEIPT operations',
+      path: ['receipt_id'],
     })
   ),
 })

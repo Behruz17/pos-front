@@ -14,6 +14,7 @@ export type TPostProductCredentials = {
   name: string
   manufacturer: string | null
   product_code: string
+  notification_threshold?: number
   image: File | null
 }
 export type TPutProductCredentials = {
@@ -25,4 +26,14 @@ export type TPostProductResponseSuccess = {
   name: string
   manufacturer?: string
   message: string
+}
+
+export type TMissingProduct = {
+  id: number
+  name: string
+  manufacturer: string | null
+  product_code: string
+  image: string
+  notification_threshold: number
+  total_stock: number
 }

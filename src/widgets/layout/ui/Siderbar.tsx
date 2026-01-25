@@ -22,11 +22,7 @@ const navigation = [
     label: 'Товары',
     icon: Package,
   },
-  {
-    to: paths.receipt(),
-    label: 'Приход товара',
-    icon: Package,
-  },
+
   {
     to: paths.transaction(),
     label: 'транзакция',
@@ -62,6 +58,11 @@ const navigation = [
     to: paths.suppliers(),
     label: 'Поставщики',
     icon: Truck,
+  },
+  {
+    to: paths.missingProducts(),
+    label: 'Недостающие товары',
+    icon: Package,
   },
 ]
 

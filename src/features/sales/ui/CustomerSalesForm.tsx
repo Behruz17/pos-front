@@ -2,13 +2,12 @@ import { useState, useRef, useEffect } from 'react'
 import { Plus, Trash2, PackagePlus } from 'lucide-react'
 import { useCreateSaleMutation } from '../api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
-import { useGetStoresQuery } from '@/features/stores/api/stores.api'
-import { useGetCustomersQuery } from '@/features/customers/api/customers.api'
 import { toast } from 'sonner'
 
 interface TSaleItem {
   product_id: number
   product_name: string
+  product_code: string  // Adding product_code as required by the interface
   quantity: number
   unit_price: number
 }
@@ -16,23 +15,23 @@ interface TSaleItem {
 const emptyItem: TSaleItem = {
   product_id: 0,
   product_name: '',
+  product_code: '',
   quantity: 1,
   unit_price: 0,
 }
 
-export const CreateSaleForm = () => {
-  const [customer_id, setCustomerId] = useState<number | undefined>(undefined)
-  const [store_id, setStoreId] = useState<number>(0)
+interface CustomerSalesFormProps {
+  initialCustomerId: number;
+  initialStoreId: number;
+}
+
+export const CustomerSalesForm = ({ initialCustomerId, initialStoreId }: CustomerSalesFormProps) => {
   const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const { data: products = [] } = useGetProductsQuery()
-  const { data: stores = [] } = useGetStoresQuery()
-  const { data: customers = [] } = useGetCustomersQuery()
 
   // Refs for keyboard navigation
-  const customerRef = useRef<HTMLSelectElement>(null)
-  const storeRef = useRef<HTMLSelectElement>(null)
   const refs = useRef<
     {
       productInputRef: React.MutableRefObject<HTMLInputElement | null>
@@ -86,25 +85,28 @@ export const CreateSaleForm = () => {
   const isInvalid = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0)
 
   const handleSubmit = async () => {
-    if (isInvalid || !store_id) return
+    if (isInvalid) return
 
     try {
       await createSale({
-        customer_id,
-        store_id,
+        customer_id: initialCustomerId, // Use the initial customer ID
+        store_id: initialStoreId,       // Use the initial store ID
         payment_status,
-        items: items.map((item) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        })),
+        items: items.map((item) => {
+          // Find the product to get its product_code
+          const product = products.find(p => p.id === item.product_id);
+          return {
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            product_code: product?.product_code || '', // Include product_code in the submission
+          }
+        }),
       }).unwrap()
 
       toast.success('Продажа успешно создана')
       // Reset form
       setItems([emptyItem])
-      setStoreId(0)
-      setCustomerId(undefined)
     } catch (error) {
       toast.error('Ошибка при создании продажи')
       console.error(error)
@@ -153,9 +155,13 @@ export const CreateSaleForm = () => {
   }
 
   // Handle product selection
-  const handleProductSelect = (productId: number, productName: string, rowIndex: number) => {
+  const handleProductSelect = (productId: number, productName: string, productCode: string, rowIndex: number) => {
     // Set the selected product but clear the search term to hide the dropdown
-    updateItem(rowIndex, { product_id: productId, product_name: productName })
+    updateItem(rowIndex, { 
+      product_id: productId, 
+      product_name: productName,
+      product_code: productCode
+    })
     setTimeout(() => {
       refs.current[rowIndex]?.quantityRef.current?.focus()
     }, 0)
@@ -163,53 +169,16 @@ export const CreateSaleForm = () => {
 
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="text-sm font-medium">Клиент (необязательно)</label>
-          <select
-            ref={customerRef}
-            value={customer_id || ''}
-            onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full border rounded-lg px-3 py-2.5"
-          >
-            <option value="">Демо-клиент</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium">Магазин *</label>
-          <select
-            ref={storeRef}
-            value={store_id}
-            onChange={(e) => setStoreId(Number(e.target.value))}
-            className="w-full border rounded-lg px-3 py-2.5"
-            required
-          >
-            <option value={0}>Выберите магазин</option>
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      
-        <div>
-          <label className="text-sm font-medium">Статус оплаты</label>
-          <select
-            value={payment_status}
-            onChange={(e) => setPaymentStatus(e.target.value as 'PAID' | 'DEBT')}
-            className="w-full border rounded-lg px-3 py-2.5"
-          >
-            <option value="DEBT">В долг</option>
-            <option value="PAID">Оплачено</option>
-          </select>
-        </div>
+      <div className="mb-4">
+        <label className="text-sm font-medium">Статус оплаты</label>
+        <select
+          value={payment_status}
+          onChange={(e) => setPaymentStatus(e.target.value as 'PAID' | 'DEBT')}
+          className="w-full border rounded-lg px-3 py-2.5 mt-1"
+        >
+          <option value="DEBT">В долг</option>
+          <option value="PAID">Оплачено</option>
+        </select>
       </div>
 
 
@@ -232,7 +201,7 @@ export const CreateSaleForm = () => {
                   ref={refs.current[i]?.productInputRef}
                   type="text"
                   value={item.product_name}
-                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0 })}
+                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0, product_code: '' })}
                   onKeyDown={(e) => handleKeyDown(e, i, 'product')}
                   placeholder="Поиск товара..."
                   className="w-full border rounded-lg px-3 py-2.5"
@@ -248,7 +217,7 @@ export const CreateSaleForm = () => {
                       <div
                         key={product.id}
                         className="p-2 hover:bg-blue-100 cursor-pointer border-b last:border-b-0"
-                        onClick={() => handleProductSelect(product.id, product.name, i)}
+                        onClick={() => handleProductSelect(product.id, product.name, product.product_code, i)}
                       >
                         <div className="font-medium">{product.name}</div>
                         <div className="text-xs text-gray-500">Артикул: {product.product_code}</div>
@@ -321,9 +290,13 @@ export const CreateSaleForm = () => {
       </div>
 
       <div className="flex flex-wrap gap-3">
+        <button type="button" onClick={addItem} className="flex items-center gap-2 text-blue-600">
+          <Plus size={16} /> Добавить товар
+        </button>
+
         <button
           type="button"
-          disabled={isInvalid || isLoading || !store_id}
+          disabled={isInvalid || isLoading}
           onClick={handleSubmit}
           className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl disabled:bg-gray-400 ml-auto"
         >

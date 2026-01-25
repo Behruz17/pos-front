@@ -1,5 +1,5 @@
 import { baseApi } from '@/shared/request/baseApi'
-import type { TPostProductResponseSuccess, TProductDto, TPutProductCredentials } from '../model/products.types'
+import type { TPostProductResponseSuccess, TProductDto, TPutProductCredentials, TMissingProduct } from '../model/products.types'
 import { productDtoSchema } from '../model/products.schemas'
 import type { TDefaultResponse } from '@/shared/types'
 
@@ -36,8 +36,15 @@ export const productsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Products', 'ProductDetails'],
     }),
+    getMissingProducts: build.query<TMissingProduct[], void>({
+      query: () => ({
+        url: '/products/missing',
+        method: 'GET',
+      }),
+      providesTags: ['MissingProducts'],
+    }),
   }),
 })
 
-export const { useGetProductsQuery, usePostProductMutation, useDeleteProductMutation, usePutProductMutation } =
+export const { useGetProductsQuery, usePostProductMutation, useDeleteProductMutation, usePutProductMutation, useGetMissingProductsQuery } =
   productsApi
