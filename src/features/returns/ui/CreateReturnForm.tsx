@@ -38,14 +38,16 @@ export const CreateReturnForm = () => {
   const storeRef = useRef<HTMLSelectElement>(null)
 
   // Initialize refs array properly
-  const refs = useRef<{
-    productInputRef: React.MutableRefObject<HTMLInputElement | null>
-    productDropdownRef: React.MutableRefObject<HTMLDivElement | null>
-    quantityRef: React.MutableRefObject<HTMLInputElement | null>
-    priceRef: React.MutableRefObject<HTMLInputElement | null>
-    removeButtonRef: React.MutableRefObject<HTMLButtonElement | null>
-  }[]>([])
-
+  const refs = useRef<
+    {
+      productInputRef: React.MutableRefObject<HTMLInputElement | null>
+      productDropdownRef: React.MutableRefObject<HTMLDivElement | null>
+      quantityRef: React.MutableRefObject<HTMLInputElement | null>
+      priceRef: React.MutableRefObject<HTMLInputElement | null>
+      removeButtonRef: React.MutableRefObject<HTMLButtonElement | null>
+    }[]
+  >([])
+  
   // Initialize refs array
   useEffect(() => {
     // Make sure refs array has the same length as items array
@@ -263,24 +265,40 @@ export const CreateReturnForm = () => {
 
         {items.map((item, i) => {
           const filteredProducts = getFilteredProducts(item.product_name)
+
           return (
             <div key={i} className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative">
+              {/* PRODUCT */}
               <div className="col-span-12 lg:col-span-5 relative">
                 <label className="text-xs text-gray-500 lg:hidden">Товар</label>
+
                 <input
-                  ref={refs.current[i]?.productInputRef}
                   type="text"
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].productInputRef.current = el
+                    }
+                  }}
                   value={item.product_name}
-                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0 })}
+                  onChange={(e) =>
+                    updateItem(i, {
+                      product_name: e.target.value,
+                      product_id: 0,
+                    })
+                  }
                   onKeyDown={(e) => handleKeyDown(e, i, 'product')}
                   placeholder="Поиск товара..."
                   className="w-full border rounded-lg px-3 py-2.5"
                 />
 
-                {/* Dropdown for product suggestions */}
+                {/* Dropdown */}
                 {!item.product_id && item.product_name && filteredProducts.length > 0 && (
                   <div
-                    ref={refs.current[i]?.productDropdownRef}
+                    ref={(el) => {
+                      if (el && refs.current[i]) {
+                        refs.current[i].productDropdownRef = el
+                      }
+                    }}
                     className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
                   >
                     {filteredProducts.map((product) => (
@@ -296,19 +314,24 @@ export const CreateReturnForm = () => {
                 )}
               </div>
 
+              {/* QUANTITY */}
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Количество</label>
+
                 <input
-                  ref={refs.current[i]?.quantityRef}
                   type="text"
                   inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={item.quantity === 0 ? '' : item.quantity}
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].quantityRef.current = el
+                    }
+                  }}
+                  value={item.quantity === 1 ? '' : item.quantity}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/^0+/, '') || '0';
-                    const numValue = Number(value);
-                    if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { quantity: numValue });
+                    const value = e.target.value.replace(/^0+(?=\d)/, '')
+                    const num = Number(value)
+                    if (!isNaN(num) && num > 0) {
+                      updateItem(i, { quantity: num })
                     }
                   }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
@@ -316,30 +339,46 @@ export const CreateReturnForm = () => {
                 />
               </div>
 
+              {/* PRICE */}
               <div className="col-span-6 lg:col-span-3">
                 <label className="text-xs text-gray-500 lg:hidden">Цена за единицу</label>
+
                 <input
-                  ref={refs.current[i]?.priceRef}
                   type="text"
                   inputMode="decimal"
-                  pattern="[0-9]*(.[0-9]+)?"
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].priceRef.current = el
+                    }
+                  }}
                   value={item.unit_price === 0 ? '' : item.unit_price}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/^0+(?=\d)/, '');
-                    const numValue = Number(value);
-                    if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { unit_price: numValue });
+                    const value = e.target.value.replace(/^0+(?=\d)/, '')
+                    const num = Number(value)
+                    if (!isNaN(num) && num >= 0) {
+                      updateItem(i, { unit_price: num })
                     }
                   }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'price')}
+                  onFocus={() => {
+                    // Add a new row when this input gets focus if it's the last row
+                    if (i === items.length - 1) {
+                      addItem();
+                    }
+                  }}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />
               </div>
 
+              {/* REMOVE */}
               <div className="col-span-12 lg:col-span-2 flex items-end">
                 {items.length > 1 && (
                   <button
-                    ref={refs.current[i]?.removeButtonRef}
+                    ref={(el) => {
+                      if (el && refs.current[i]) {
+                        refs.current[i].removeButtonRef = el
+                      }
+                    }}
                     onClick={() => removeItem(i)}
                     className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5"
                   >
