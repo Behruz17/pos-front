@@ -23,9 +23,10 @@ const emptyItem: TSaleItem = {
 interface CustomerSalesFormProps {
   initialCustomerId: number;
   initialStoreId: number;
+  onClose?: () => void;
 }
 
-export const CustomerSalesForm = ({ initialCustomerId, initialStoreId }: CustomerSalesFormProps) => {
+export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose }: CustomerSalesFormProps) => {
   const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
   const [createSale, { isLoading }] = useCreateSaleMutation()
@@ -107,6 +108,11 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId }: Custome
       toast.success('Продажа успешно создана')
       // Reset form
       setItems([emptyItem])
+      
+      // Close the form if onClose is provided
+      if (onClose) {
+        onClose();
+      }
     } catch (error) {
       toast.error('Ошибка при создании продажи')
       console.error(error)
@@ -290,10 +296,6 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId }: Custome
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <button type="button" onClick={addItem} className="flex items-center gap-2 text-blue-600">
-          <Plus size={16} /> Добавить товар
-        </button>
-
         <button
           type="button"
           disabled={isInvalid || isLoading}

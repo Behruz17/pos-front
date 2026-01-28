@@ -36,3 +36,16 @@ export interface TStoreWithCustomers {
   }
   customers: TStoreCustomer[]
 }
+
+export interface TStoreFinancialSummary {
+  store_id: number;
+  store_name: string;
+  total_sales: number;
+  total_debts: number;
+  total_expenses: number;
+}
+
+export interface TAllStoresFinancialSummary {
+  stores: TStoreFinancialSummary[];
+  total_stores: number;
+}

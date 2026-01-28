@@ -342,6 +342,27 @@ const AdminReceiptForm = ({
         'Вес кг': item.weight_kg || '',
         'Объем м3': item.volume_cbm || ''
       }))
+      
+      // Calculate total amount
+      const totalAmount = items.reduce((sum, item) => {
+        const amount = parseFloat(item.amount);
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+      
+      // Add total row to the export data
+      exportData.push({
+        '#': '',
+        'Товар': 'ИТОГО:',
+        'Коробки': '',
+        'Шт. в кор.': '',
+        'Отд. шт.': '',
+        'Цена зак.': '',
+        'Наценка %': '',
+        'Цена прод.': '',
+        'Сумма': totalAmount,
+        'Вес кг': '',
+        'Объем м3': ''
+      });
 
       // Create worksheet
       const worksheet = XLSX.utils.json_to_sheet(exportData)

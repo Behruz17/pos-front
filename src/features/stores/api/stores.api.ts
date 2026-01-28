@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TStore, TCreateStore, TUpdateStore, TStoreWithCustomers } from '../model/stores.types'
+import type { TStore, TCreateStore, TUpdateStore, TStoreWithCustomers, TStoreFinancialSummary, TAllStoresFinancialSummary } from '../model/stores.types'
 
 const storesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -41,6 +41,36 @@ const storesApi = baseApi.injectEndpoints({
       }),
       providesTags: ['Stores'],
     }),
+    getStoreFinancialSummary: build.query<TStoreFinancialSummary, {storeId: number, month?: number, year?: number}>({
+      query: ({storeId, month, year}) => {
+        let url = `/stores/${storeId}/financial-summary`;
+        const params = new URLSearchParams();
+        if (month) params.append('month', month.toString());
+        if (year) params.append('year', year.toString());
+        if (params.toString()) url += `?${params.toString()}`;
+        
+        return {
+          url,
+          method: 'GET',
+        };
+      },
+      providesTags: ['Stores'],
+    }),
+    getAllStoresFinancialSummary: build.query<TAllStoresFinancialSummary, { month?: number, year?: number }>({
+      query: ({ month, year }) => {
+        let url = '/stores/financial-summary';
+        const params = new URLSearchParams();
+        if (month) params.append('month', month.toString());
+        if (year) params.append('year', year.toString());
+        if (params.toString()) url += `?${params.toString()}`;
+        
+        return {
+          url,
+          method: 'GET',
+        };
+      },
+      providesTags: ['Stores'],
+    }),
   }),
 })
 
@@ -49,5 +79,7 @@ export const {
   useCreateStoreMutation, 
   useUpdateStoreMutation, 
   useDeleteStoreMutation,
-  useGetStoreCustomersQuery
+  useGetStoreCustomersQuery,
+  useGetStoreFinancialSummaryQuery,
+  useGetAllStoresFinancialSummaryQuery
 } = storesApi

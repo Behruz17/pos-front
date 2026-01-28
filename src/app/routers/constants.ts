@@ -35,4 +35,5 @@ export const paths = {
   stockId: (id: string) => `/stock/${id}`,
   transactionsId: (id: string) => `/inventory/transaction/${id}`,
   returnsId: (id: string) => `/returns/${id}`,
+  expenses: () => `/expenses`,
 }

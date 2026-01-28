@@ -20,6 +20,7 @@ import ProductsPage from '@/pages/ProductPage'
 import StoreCustomersPage from '@/pages/StoreCustomersPage'
 import CustomerSalesPage from '@/pages/CustomerSalesPage'
 import MissingProductsPage from '@/pages/MissingProductsPage'
+import ExpensesPage from '@/pages/ExpensesPage'
 
 export const router = createBrowserRouter([
   {
@@ -85,6 +86,10 @@ export const router = createBrowserRouter([
       {
         path: paths.returns(),
         element: <SalesPage />,
+      },
+      {
+        path: paths.expenses(),
+        element: <ExpensesPage />,
       },
       {
         path: paths.customerSales(':customerId', ':storeId'),

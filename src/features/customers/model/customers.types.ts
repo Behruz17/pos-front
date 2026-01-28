@@ -25,6 +25,49 @@ export type TUpdateBalanceCustomerSuccessResponse = {
   message: string
 } & { id: TId }
 
+export interface TCustomerPayment {
+  id: number;
+  customer_id: number;
+  customer_name: string;
+  amount: number;
+  payment_method: 'CASH' | 'CARD' | 'TRANSFER';
+  note?: string;
+  store_id: number;
+  new_balance: number;
+  message: string;
+}
+
+export interface TCustomerOperation {
+  id: number;
+  customer_id: number;
+  customer_name: string;
+  store_id: number;
+  store_name: string;
+  sum: number;
+  type: 'PAID' | 'DEBT' | 'PAYMENT';
+  date: string;
+}
+
+export interface TCustomerOperationsWithCustomer {
+  customer: {
+    id: number;
+    full_name: string;
+    phone: string;
+    balance: number;
+  };
+  operations: TCustomerOperation[];
+}
+
+export interface TCustomerOperationsWithStore {
+  store: {
+    id: number;
+    name: string;
+  };
+  operations: TCustomerOperation[];
+}
+
+export type TCustomerOperations = TCustomerOperationsWithCustomer | TCustomerOperationsWithStore;
+
 export type TCustomerDtoWithTransactions = z.infer<typeof oneCustomerDtoSchema>
 
 export interface TCustomerSale {

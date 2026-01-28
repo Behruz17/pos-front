@@ -23,22 +23,22 @@ const navigation = [
     icon: Package,
   },
 
-  {
-    to: paths.transaction(),
-    label: 'транзакция',
-    icon: ShoppingCart,
-  },
+  // {
+  //   to: paths.transaction(),
+  //   label: 'транзакция',
+  //   icon: ShoppingCart,
+  // },
   {
     to: paths.sales(),
     label: 'Продажи',
     icon: CreditCard,
   },
 
-  {
-    to: paths.stockHistory(),
-    label: 'История изменений',
-    icon: History,
-  },
+  // {
+  //   to: paths.stockHistory(),
+  //   label: 'История изменений',
+  //   icon: History,
+  // },
   {
     to: paths.customers(),
     label: 'Клиенты',

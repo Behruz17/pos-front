@@ -9,6 +9,8 @@ import type {
   TUpdateCustomerCredentials,
   TUpdateCustomersSuccessResponse,
   TCustomerSales,
+  TCustomerPayment,
+  TCustomerOperations,
 } from '../model/customers.types'
 import { customerDtoSchema, oneCustomerDtoSchema } from '../model/customers.schemas'
 import type { TDefaultResponse, TId } from '@/shared/types'
@@ -75,6 +77,31 @@ const customersApi = baseApi.injectEndpoints({
       }),
       providesTags: ['Customers'],
     }),
+    getCustomerOperations: build.query<TCustomerOperations, { customerId?: number; store_id: number; type?: 'PAID' | 'DEBT' | 'PAYMENT'; month?: number; year?: number }>({
+      query: ({ customerId, store_id, type, month, year }) => {
+        const params = new URLSearchParams();
+        params.append('store_id', store_id.toString());
+        if (type) params.append('type', type);
+        if (month) params.append('month', month.toString());
+        if (year) params.append('year', year.toString());
+        
+        const queryString = params.toString();
+        const basePath = customerId ? `/customers/${customerId}/operations` : '/customers/operations';
+        return {
+          url: `${basePath}${queryString ? `?${queryString}` : ''}`,
+          method: 'GET',
+        };
+      },
+      providesTags: ['Customers'],
+    }),
+    createCustomerPayment: build.mutation<TCustomerPayment & TDefaultResponse, { id: number; body: { amount: number; payment_method?: 'CASH' | 'CARD' | 'TRANSFER'; note?: string; store_id?: number } }>({
+      query: ({ id, body }) => ({
+        url: `/customers/${id}/payment`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Customers'],
+    }),
   }),
 })
 export const {
@@ -86,4 +113,6 @@ export const {
   useUpdateBalanceCustomerMutation,
   useGetOneUserDetailQuery,
   useGetCustomerSalesQuery,
+  useGetCustomerOperationsQuery,
+  useCreateCustomerPaymentMutation,
 } = customersApi

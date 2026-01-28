@@ -8,3 +8,7 @@ export const formatDateTime = (value: string) =>
     minute: '2-digit',
     second: '2-digit',
   })
+
+export const formatCurrency = (value: number) => {
+  return Number(value).toFixed(2)
+}
