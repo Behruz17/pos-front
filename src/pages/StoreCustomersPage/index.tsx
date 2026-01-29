@@ -10,7 +10,8 @@ import { useGetStoreFinancialSummaryQuery } from '@/features/stores/api/stores.a
 import { toast } from 'sonner'
 import { useCreateSaleMutation } from '@/features/sales/api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
-import { Trash2, PackagePlus } from 'lucide-react'
+import { Trash2, PackagePlus, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import CustomerFormModal from '@/widgets/modals/CustomerFormModal'
 
 export const StoreCustomersPage = () => {
@@ -59,6 +60,57 @@ export const StoreCustomersPage = () => {
 
   // Filter sales by store_id (already done server-side, but keeping for safety)
   // const storeSales = allSales.filter(sale => sale.store_id === Number(storeId))
+
+  // Handle sales export to Excel
+  const handleExportSales = () => {
+    if (storeSales.length === 0) {
+      toast.error('Нет данных для экспорта');
+      return;
+    }
+    
+    try {
+      // Prepare data for export
+      const exportData = storeSales.map((sale, index) => ({
+        '#': (index + 1).toString(),
+        'Дата': new Date(sale.created_at).toLocaleDateString('ru-RU'),
+        'Клиент': sale.customer_name || '—',
+        'Сумма': Number(sale.total_amount).toFixed(2),
+        'Статус оплаты': sale.payment_status === 'DEBT' ? 'В долг' : 'Оплачено',
+        'Создал': sale.created_by_name || '—',
+      }));
+      
+      // Add total row
+      const totalSum = storeSales
+        .reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0);
+      
+      exportData.push({
+        '#': 'ИТОГО',
+        'Дата': '',
+        'Клиент': '',
+        'Сумма': totalSum.toFixed(2),
+        'Статус оплаты': '',
+        'Создал': '',
+      });
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Продажи');
+      
+      // Generate filename with timestamp
+      const fileName = `sales_${store.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Export file
+      XLSX.writeFile(workbook, fileName);
+      
+      toast.success('Файл успешно экспортирован');
+    } catch (error) {
+      console.error('Error exporting sales:', error);
+      toast.error('Произошла ошибка при экспорте в Excel');
+    }
+  };
 
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -479,13 +531,22 @@ export const StoreCustomersPage = () => {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Продажи магазина</h3>
-              <button 
-                onClick={() => setShowSalesForm(!showSalesForm)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                <Plus size={16} />
-                Создать продажу
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleExportSales}
+                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                >
+                  <Download size={16} />
+                  Экспорт в Excel
+                </button>
+                <button 
+                  onClick={() => setShowSalesForm(!showSalesForm)}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  <Plus size={16} />
+                  Создать продажу
+                </button>
+              </div>
             </div>
             
             {/* Filters */}
@@ -535,7 +596,7 @@ export const StoreCustomersPage = () => {
             {showSalesForm && (
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-semibold text-slate-800">Создать продажу</h2>
+                  <h2 className="text-lg font-semibold text-slate-800">Создать продаж</h2>
                   <button 
                     onClick={() => {
                       setShowSalesForm(false);
@@ -857,7 +918,11 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
               <div className="col-span-12 lg:col-span-3 relative">
                 <label className="text-xs text-gray-500 lg:hidden">Товар</label>
                 <input
-                  ref={refs.current[i]?.productInputRef}
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].productInputRef.current = el;
+                    }
+                  }}
                   type="text"
                   value={item.product_name}
                   onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0, product_code: '' })}
@@ -869,7 +934,11 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                 {/* Dropdown for product suggestions */}
                 {!item.product_id && item.product_name && filteredProducts.length > 0 && (
                   <div
-                    ref={refs.current[i]?.productDropdownRef}
+                    ref={(el) => {
+                      if (refs.current[i]) {
+                        refs.current[i].productDropdownRef.current = el;
+                      }
+                    }}
                     className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
                   >
                     {filteredProducts.map((product) => (
@@ -896,7 +965,11 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Количество</label>
                 <input
-                  ref={refs.current[i]?.quantityRef}
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].quantityRef.current = el;
+                    }
+                  }}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
@@ -916,7 +989,11 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Цена за единицу</label>
                 <input
-                  ref={refs.current[i]?.priceRef}
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].priceRef.current = el;
+                    }
+                  }}
                   type="text"
                   inputMode="decimal"
                   pattern="[0-9]*(.[0-9]+)?"
@@ -948,7 +1025,11 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
               <div className="col-span-12 lg:col-span-2 flex items-end">
                 {items.length > 1 && (
                   <button
-                    ref={refs.current[i]?.removeButtonRef}
+                    ref={(el) => {
+                      if (refs.current[i]) {
+                        refs.current[i].removeButtonRef.current = el;
+                      }
+                    }}
                     onClick={() => removeItem(i)}
                     className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5"
                   >

@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useGetProductsQuery, usePostProductMutation } from '@/features/products/api/products.api'
-import { useGetWarehousesQuery } from '@/features/warehouses/api/warehouses.api'
 import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, PackagePlus, Copy, Upload, Download, RotateCw } from 'lucide-react'
+import { Trash2, PackagePlus, Upload, Download, RotateCw } from 'lucide-react'
 import type { TReceiptItem } from '../model/receipt.types'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
@@ -39,7 +38,18 @@ const emptyItem: TReceiptItem & { markup_percent: string } = {
 
 // Define expected Excel column mapping
 interface ExcelReceiptItem {
-  // Russian column names
+  // Russian column names (exact match from your data)
+  Товар?: string
+  Коробки?: string | number
+  'Шт. в кор.'?: string | number
+  'Отд. шт.'?: string | number
+  'Цена зак.'?: string | number
+  'Наценка %'?: string | number
+  'Цена прод.'?: string | number
+  Сумма?: string | number
+  'Вес кг'?: string | number
+  'Объем м3'?: string | number
+  // Russian column names (lowercase variations)
   товар?: string
   коробки?: string | number
   'шт.'?: string | number
@@ -62,37 +72,23 @@ interface ExcelReceiptItem {
   amount?: string | number
   weight_kg?: string | number
   volume_cbm?: string | number
+  // Index signature for dynamic access
+  [key: string]: any
 }
 
 const AdminReceiptForm = ({ 
-  preselectedWarehouseId,
-  hideWarehouseSelection 
+  preselectedWarehouseId
 }: { 
   preselectedWarehouseId?: string;
-  hideWarehouseSelection?: boolean;
 } = {}) => {
 
-  const { data: warehouses = [] } = useGetWarehousesQuery()
   const { data: products = [] } = useGetProductsQuery()
   const { data: suppliers = [] } = useGetSuppliersQuery()
   const [createReceipt, { isLoading }] = usePostReceiptMutation()
   const [createProduct, { isLoading: isCreatingProduct }] = usePostProductMutation()
 
   const [supplierId, setSupplierId] = useState('')
-    
-  const [warehouseId, setWarehouseId] = useState(preselectedWarehouseId || '')
-    
-  // Set warehouse ID when preselectedWarehouseId changes
-  useEffect(() => {
-    if (preselectedWarehouseId) {
-      setWarehouseId(preselectedWarehouseId)
-    }
-  }, [preselectedWarehouseId])
   const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
-
-  // State for bulk operations
-  const [bulkAddCount, setBulkAddCount] = useState(5)
-  const [isBulkAdding, setIsBulkAdding] = useState(false)
 
   // State for Excel import
   const [excelImporting, setExcelImporting] = useState(false)
@@ -163,13 +159,6 @@ const AdminReceiptForm = ({
 
   const addItem = () => setItems((p) => [...p, emptyItem])
 
-  const addMultipleItems = (count: number) => {
-    if (count <= 0 || count > 1000) return
-
-    const newItems = Array(count).fill(emptyItem)
-    setItems((prev) => [...prev, ...newItems])
-  }
-
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
 
@@ -225,94 +214,153 @@ const AdminReceiptForm = ({
     try {
       const reader = new FileReader()
       reader.onload = (e) => {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer)
-        const workbook = XLSX.read(data, { type: 'array' })
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
 
-        // Assuming the first sheet contains the data
-        const sheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[sheetName]
+          // Assuming the first sheet contains the data
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
 
-        // Convert to JSON
-        const jsonData: ExcelReceiptItem[] = XLSX.utils.sheet_to_json(worksheet)
+          // Convert to JSON
+          const jsonData: ExcelReceiptItem[] = XLSX.utils.sheet_to_json(worksheet)
 
-        if (jsonData.length === 0) {
-          alert('Excel файл не содержит данных или имеет неправильный формат')
-          setExcelImporting(false)
-          return
+          console.log('Imported Excel data:', jsonData); // Debug log
+
+          if (jsonData.length === 0) {
+            toast.error('Excel файл не содержит данных или имеет неправильный формат')
+            setExcelImporting(false)
+            return
+          }
+
+          // Process imported data
+          const processedItems: (typeof emptyItem)[] = []
+          const errors: string[] = []
+          const warnings: string[] = []
+
+          jsonData.forEach((row, index) => {
+            try {
+              // Find product by name or code
+              let productId = ''
+              let productName = ''
+              let productCode = ''
+              
+              // Try to find product by various identifiers
+              const productIdentifier = row.product_id || row['Товар'] || row['товар'] || row.product_name || ''
+              
+              if (productIdentifier) {
+                // Try exact match first
+                let foundProduct = products.find((p) => 
+                  p.name.toLowerCase() === productIdentifier.toLowerCase() ||
+                  p.product_code?.toLowerCase() === productIdentifier.toLowerCase()
+                )
+                
+                // If not found, try partial match
+                if (!foundProduct) {
+                  foundProduct = products.find((p) => 
+                    p.name.toLowerCase().includes(productIdentifier.toLowerCase()) ||
+                    p.product_code?.toLowerCase().includes(productIdentifier.toLowerCase())
+                  )
+                }
+                
+                if (foundProduct) {
+                  productId = foundProduct.id.toString()
+                  productName = foundProduct.name
+                  productCode = foundProduct.product_code || ''
+                } else {
+                  // Product not found - treat as new product
+                  productId = productIdentifier
+                  productName = productIdentifier
+                  productCode = (row as any).product_code || ''
+                  warnings.push(`Строка ${index + 1}: Товар "${productIdentifier}" не найден, будет создан как новый`)
+                }
+              } else {
+                errors.push(`Строка ${index + 1}: Не указан товар`)
+                return
+              }
+
+              // Validate and process numeric values
+              const purchaseCost = String(row.purchase_cost || row['Цена зак.'] || row['цена зак'] || '0')
+              const markupPercent = String(row.markup_percent || row['Наценка %'] || row['наценка %'] || '0')
+              const boxesQty = String(row.boxes_qty || row['Коробки'] || row['коробки'] || '0')
+              const piecesPerBox = String(row.pieces_per_box || row['Шт. в кор.'] || row['шт.'] || '0')
+              const loosePieces = String(row.loose_pieces || row['Отд. шт.'] || row['отд шт'] || '0')
+              
+              // Validate required fields
+              if (Number(boxesQty) <= 0 && Number(piecesPerBox) <= 0 && Number(loosePieces) <= 0) {
+                errors.push(`Строка ${index + 1}: Должно быть указано количество (коробки, шт. в кор. или отд. шт.)`)
+                return
+              }
+              
+              if (Number(purchaseCost) <= 0) {
+                errors.push(`Строка ${index + 1}: Цена закупки должна быть больше 0`)
+                return
+              }
+
+              // Calculate derived values
+              const sellingPrice = String(
+                row.selling_price || row['Цена прод.'] || row['цена прод'] || calcSellingPrice(purchaseCost, markupPercent)
+              )
+              const amount = String(
+                row.amount || row['Сумма'] || row['сумма'] || calcAmount(boxesQty, piecesPerBox, purchaseCost, loosePieces)
+              )
+              const weightKg = String(row.weight_kg || row['Вес кг'] || row['вес кг'] || '')
+              const volumeCbm = String(row.volume_cbm || row['Объем м3'] || row['объем м3'] || '')
+
+              processedItems.push({
+                product_id: productId,
+                product_name: productName,
+                product_code: productCode,
+                boxes_qty: boxesQty,
+                pieces_per_box: piecesPerBox,
+                loose_pieces: loosePieces,
+                weight_kg: weightKg,
+                volume_cbm: volumeCbm,
+                purchase_cost: purchaseCost,
+                selling_price: sellingPrice,
+                amount: amount,
+                markup_percent: markupPercent,
+              })
+            } catch (rowError) {
+              errors.push(`Строка ${index + 1}: Ошибка обработки данных - ${rowError}`)
+            }
+          })
+
+          console.log('Processed items:', processedItems); // Debug log
+          console.log('Errors:', errors); // Debug log
+          console.log('Warnings:', warnings); // Debug log
+
+          // Show results
+          if (errors.length > 0) {
+            toast.error(`Импорт завершен с ошибками:\n${errors.join('\n')}`)
+          } else if (warnings.length > 0) {
+            toast.warning(`Импорт успешен с предупреждениями:\n${warnings.join('\n')}`)
+          } else {
+            toast.success(`Успешно импортировано ${processedItems.length} товаров из Excel файла`)
+          }
+
+          // Update the items state if we have valid items
+          if (processedItems.length > 0) {
+            setItems(processedItems)
+          }
+
+        } catch (parseError) {
+          console.error('Error parsing Excel file:', parseError)
+          toast.error('Ошибка при разборе Excel файла. Проверьте формат файла.')
         }
 
-        // Process imported data
-        const processedItems = jsonData.map((row) => {
-          // Find product by name if product_id is not provided
-          let productId = row.product_id || row.товар || ''
-          let productName = ''
-          let productCode = ''
-          
-          if (!productId && (row.product_name || row.товар)) {
-            const nameToFind = row.product_name || row.товар
-            const foundProduct = products.find((p) => p.name.toLowerCase() === nameToFind!.toLowerCase())
-            if (foundProduct) {
-              productId = foundProduct.id.toString()
-              productName = foundProduct.name
-              productCode = foundProduct.product_code || ''
-            } else {
-              // If exact match not found, try partial match
-              const partialMatch = products.find((p) => p.name.toLowerCase().includes(nameToFind!.toLowerCase()))
-              if (partialMatch) {
-                productId = partialMatch.id.toString()
-                productName = partialMatch.name
-                productCode = partialMatch.product_code || ''
-              }
-            }
-          }
-
-          // Calculate derived values with support for both English and Russian column names
-          const purchaseCost = String(row.purchase_cost || row['цена зак'] || '0')
-          const markupPercent = String(row.markup_percent || row['наценка %'] || '0')
-          const boxesQty = String(row.boxes_qty || row.коробки || '0')
-          const piecesPerBox = String(row.pieces_per_box || row['шт.'] || '0')
-          const loosePieces = String(row.loose_pieces || row['отд шт'] || '0')
-          const sellingPrice = String(
-            row.selling_price || row['цена прод'] || calcSellingPrice(purchaseCost, markupPercent)
-          )
-          const amount = String(
-            row.amount || row.сумма || calcAmount(boxesQty, piecesPerBox, purchaseCost, loosePieces)
-          )
-          const weightKg = String(row.weight_kg || row['вес кг'] || '')
-          const volumeCbm = String(row.volume_cbm || row['объем м3'] || '')
-
-          return {
-            product_id: productId,
-            product_name: productName,
-            product_code: productCode,
-            boxes_qty: boxesQty,
-            pieces_per_box: piecesPerBox,
-            loose_pieces: loosePieces,
-            weight_kg: weightKg,
-            volume_cbm: volumeCbm,
-            purchase_cost: purchaseCost,
-            selling_price: sellingPrice,
-            amount: amount,
-            markup_percent: markupPercent,
-          }
-        })
-
-        // Update the items state
-        setItems(processedItems)
-
         setExcelImporting(false)
-        alert(`Импортировано ${processedItems.length} товаров из Excel файла`)
       }
 
       reader.onerror = () => {
-        alert('Ошибка при чтении Excel файла')
+        toast.error('Ошибка при чтении Excel файла')
         setExcelImporting(false)
       }
 
       reader.readAsArrayBuffer(file)
     } catch (error) {
       console.error('Error importing Excel:', error)
-      alert('Произошла ошибка при импорте Excel файла')
+      toast.error('Произошла ошибка при импорте Excel файла')
       setExcelImporting(false)
     }
   }
@@ -330,7 +378,7 @@ const AdminReceiptForm = ({
     try {
       // Prepare data for export
       const exportData = items.map((item, index) => ({
-        '#': index + 1,
+        '#': (index + 1).toString(),
         'Товар': item.product_name || products.find(p => p.id.toString() === item.product_id)?.name || item.product_id || '',
         'Коробки': item.boxes_qty || 0,
         'Шт. в кор.': item.pieces_per_box || 0,
@@ -351,7 +399,7 @@ const AdminReceiptForm = ({
       
       // Add total row to the export data
       exportData.push({
-        '#': '',
+        '#': 'ИТОГО',
         'Товар': 'ИТОГО:',
         'Коробки': '',
         'Шт. в кор.': '',
@@ -359,7 +407,7 @@ const AdminReceiptForm = ({
         'Цена зак.': '',
         'Наценка %': '',
         'Цена прод.': '',
-        'Сумма': totalAmount,
+        'Сумма': totalAmount.toString(),
         'Вес кг': '',
         'Объем м3': ''
       });
@@ -471,7 +519,7 @@ const AdminReceiptForm = ({
 
     try {
       // Check if any items have non-existent products and create them first
-      let updatedItems = [...items];
+      const updatedItems = [...items];
       
       for (let i = 0; i < updatedItems.length; i++) {
         const item = updatedItems[i];
@@ -524,7 +572,6 @@ const AdminReceiptForm = ({
       }).unwrap()
 
       toast.success('Приход успешно оформлен');
-      setWarehouseId(''); // Reset warehouse ID
       setSupplierId('');
       setItems([emptyItem]);
     } catch (error) {
