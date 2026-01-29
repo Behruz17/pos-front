@@ -20,6 +20,13 @@ const salesApi = baseApi.injectEndpoints({
       },
       providesTags: ['Sales'],
     }),
+    getSaleById: build.query<TSale, number>({
+      query: (id) => ({
+        url: `/sales/${id}`,
+        method: 'GET',
+      }),
+      providesTags: (result, error, id) => [{ type: 'Sales', id }],
+    }),
     createSale: build.mutation<TSale & TDefaultResponse, TCreateSale>({
       query: (body) => ({
         url: '/sales',
@@ -31,4 +38,4 @@ const salesApi = baseApi.injectEndpoints({
   }),
 })
 
-export const { useCreateSaleMutation, useGetSalesQuery } = salesApi
+export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery } = salesApi

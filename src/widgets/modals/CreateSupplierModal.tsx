@@ -10,9 +10,10 @@ import {
 type Props = {
   supplierId: number | null
   onClose: () => void
+  warehouseId?: number
 }
 
-const CreateSupplierModal = ({ supplierId, onClose }: Props) => {
+const CreateSupplierModal = ({ supplierId, onClose, warehouseId }: Props) => {
   const isEdit = Boolean(supplierId)
   const { data, isLoading } = useGetOneSupplierQuery(supplierId!, {
     skip: !isEdit,
@@ -42,14 +43,25 @@ const CreateSupplierModal = ({ supplierId, onClose }: Props) => {
   const onSubmit = async () => {
     if (!form.name) return
 
+    // Prepare the payload
+    const payload: any = {
+      ...form,
+      status: 1, // Default status is 1
+    };
+    
+    // Include warehouseId if provided
+    if (warehouseId) {
+      payload.warehouse_id = warehouseId;
+    }
+
     if (isEdit) {
+      // For update, we need to include the id in the payload
       await updateSupplier({
         id: supplierId!,
-        ...form,
-        status: 1, // Default status is 1
+        ...payload,
       }).unwrap()
     } else {
-      await createSupplier({...form, status: 1}).unwrap()
+      await createSupplier(payload).unwrap()
     }
 
     onClose()

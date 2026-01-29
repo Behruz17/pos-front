@@ -1,19 +1,19 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { X, Save, UserPlus, Wallet, Plus, Minus } from 'lucide-react'
+import { X, Save, UserPlus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   useCreateCustomerMutation,
   useGetOneCustomerQuery,
-  useUpdateBalanceCustomerMutation,
   useUpdateCustomerMutation,
 } from '@/features/customers/api/customers.api'
 
 type Props = {
   customerId: number | null
+  storeId: number
   onClose: () => void
 }
 
-const CustomerFormModal = ({ customerId, onClose }: Props) => {
+const CustomerFormModal = ({ customerId, storeId, onClose }: Props) => {
   const isEdit = Boolean(customerId)
   const { data, isLoading } = useGetOneCustomerQuery(customerId!, {
     skip: !isEdit,
@@ -21,19 +21,14 @@ const CustomerFormModal = ({ customerId, onClose }: Props) => {
 
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
-  const [updateBalance, { isLoading: isBalanceUpdating }] = useUpdateBalanceCustomerMutation()
 
   const [form, setForm] = useState(() => ({
     full_name: data?.full_name || '',
     phone: data?.phone ?? '',
-    city: data?.city ?? '',
+    city: data?.city ?? ''
   }))
 
-  const [balanceForm, setBalanceForm] = useState({
-    amount: data?.balance ?? '',
-    operation: 'add' as 'add' | 'subtract',
-    reason: '',
-  })
+
 
   useEffect(() => {
     if (data && isEdit) {
@@ -45,7 +40,7 @@ const CustomerFormModal = ({ customerId, onClose }: Props) => {
     }
   }, [data, isEdit])
 
-  const isSaving = isCreating || isUpdating || isBalanceUpdating
+  const isSaving = isCreating || isUpdating
 
   const onSubmit = async () => {
     if (!form.full_name) return
@@ -53,28 +48,22 @@ const CustomerFormModal = ({ customerId, onClose }: Props) => {
     if (isEdit) {
       await updateCustomer({
         id: customerId!,
-        ...form,
+        full_name: form.full_name,
+        phone: form.phone || undefined,
+        city: form.city || undefined,
+        store_id: storeId
       }).unwrap()
     } else {
-      await createCustomer(form).unwrap()
+      await createCustomer({
+        ...form,
+        store_id: storeId
+      }).unwrap()
     }
 
     onClose()
   }
 
-  const onUpdateBalance = async () => {
-    if (!balanceForm.amount) return
 
-    await updateBalance({
-      id: customerId!,
-      amount: Number(balanceForm.amount),
-      operation: balanceForm.operation,
-      reason: balanceForm.reason || undefined,
-    }).unwrap()
-
-    setBalanceForm({ amount: '', operation: 'add', reason: '' })
-    onClose()
-  }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
@@ -130,76 +119,7 @@ const CustomerFormModal = ({ customerId, onClose }: Props) => {
                 </div>
               </div>
 
-              {isEdit && (
-                <div className="pt-6 border-t space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                    <Wallet size={16} />
-                    Баланс клиента
-                  </div>
 
-                  <div className="flex gap-2">
-                    <BalanceButton
-                      active={balanceForm.operation === 'add'}
-                      onClick={() => setBalanceForm({ ...balanceForm, operation: 'add' })}
-                      color="green"
-                      icon={<Plus size={14} />}
-                      label="Начислить"
-                    />
-
-                    <BalanceButton
-                      active={balanceForm.operation === 'subtract'}
-                      onClick={() => setBalanceForm({ ...balanceForm, operation: 'subtract' })}
-                      color="red"
-                      icon={<Minus size={14} />}
-                      label="Списать"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Баланс</label>
-                    <input
-                      type="string"
-                      value={balanceForm.amount}
-                      placeholder={`${data?.balance ?? ''} сомони есть`}
-                      onChange={(e) => {
-                        const v = e.target.value.trim()
-                        if (!/^\d*(\.\d*)?$/.test(v)) return
-                        setBalanceForm({ ...balanceForm, amount: v })
-                      }}
-                      className="
-        w-full rounded-lg border border-slate-300
-        px-3 py-2 text-sm
-        focus:ring-2 focus:ring-blue-500 focus:border-transparent
-      "
-                    />
-                  </div>
-
-                  <Field
-                    label="Причина"
-                    value={balanceForm.reason}
-                    onChange={(v) => {
-                      setBalanceForm({ ...balanceForm, reason: v })
-                    }}
-                    placeholder="Корректировка баланса"
-                  />
-
-                  <button
-                    onClick={onUpdateBalance}
-                    disabled={!balanceForm.amount || isBalanceUpdating || isUpdating}
-                    className="
-                    cursor-pointer
-                      w-full mt-2
-                      inline-flex items-center justify-center gap-2
-                      rounded-lg px-4 py-2
-                      bg-slate-800 text-white text-sm font-medium
-                      hover:bg-slate-900
-                      disabled:opacity-50
-                    "
-                  >
-                    <Wallet size={16} />
-                    {isBalanceUpdating ? 'Применение…' : 'Применить изменение баланса'}
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -265,39 +185,4 @@ const Field = ({
   </div>
 )
 
-const BalanceButton = ({
-  active,
-  onClick,
-  color,
-  icon,
-  label,
-}: {
-  active: boolean
-  onClick: () => void
-  color: 'green' | 'red'
-  icon: React.ReactNode
-  label: string
-}) => {
-  const colors =
-    color === 'green'
-      ? active
-        ? 'bg-green-50 border-green-300 text-green-700'
-        : 'border-slate-300 text-slate-600'
-      : active
-      ? 'bg-red-50 border-red-300 text-red-700'
-      : 'border-slate-300 text-slate-600'
 
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        cursor-pointer flex-1 flex items-center justify-center gap-1
-        rounded-lg border px-3 py-2 text-sm
-        transition ${colors}
-      `}
-    >
-      {icon}
-      {label}
-    </button>
-  )
-}

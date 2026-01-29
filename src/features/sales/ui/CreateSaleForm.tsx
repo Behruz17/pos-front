@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 interface TSaleItem {
   product_id: number
   product_name: string
+  product_code: string
   quantity: number
   unit_price: number
 }
@@ -16,6 +17,7 @@ interface TSaleItem {
 const emptyItem: TSaleItem = {
   product_id: 0,
   product_name: '',
+  product_code: '',
   quantity: 1,
   unit_price: 0,
 }
@@ -93,11 +95,16 @@ export const CreateSaleForm = () => {
         customer_id,
         store_id,
         payment_status,
-        items: items.map((item) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        })),
+        items: items.map((item) => {
+          // Find the product to get its product_code
+          const product = products.find(p => p.id === item.product_id);
+          return {
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            product_code: product?.product_code || '', // Include product_code in the submission
+          }
+        }),
       }).unwrap()
 
       toast.success('Продажа успешно создана')
@@ -146,16 +153,28 @@ export const CreateSaleForm = () => {
     }
   }
 
-  // Filter products based on input
+  // Filter products based on input (search by name or code)
   const getFilteredProducts = (searchTerm: string) => {
     if (!searchTerm) return products
-    return products.filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    const lowerSearchTerm = searchTerm.toLowerCase()
+    return products.filter((p) => 
+      p.name.toLowerCase().includes(lowerSearchTerm) || 
+      p.product_code.toLowerCase().includes(lowerSearchTerm)
+    )
   }
 
   // Handle product selection
   const handleProductSelect = (productId: number, productName: string, rowIndex: number) => {
-    // Set the selected product but clear the search term to hide the dropdown
-    updateItem(rowIndex, { product_id: productId, product_name: productName })
+    // Find the selected product to get its sales price and product_code
+    const selectedProduct = products.find(p => p.id === productId);
+    
+    // Set the selected product with auto-populated sales price and product_code
+    updateItem(rowIndex, { 
+      product_id: productId, 
+      product_name: productName,
+      product_code: selectedProduct?.product_code || '',
+      unit_price: selectedProduct ? Number(selectedProduct.selling_price) : 0
+    })
     setTimeout(() => {
       refs.current[rowIndex]?.quantityRef.current?.focus()
     }, 0)
@@ -216,9 +235,11 @@ export const CreateSaleForm = () => {
 
       <div className="space-y-4">
         <div className="grid grid-cols-12 gap-4 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
-          <div className="col-span-5">Товар</div>
+          <div className="col-span-3">Товар</div>
+          <div className="col-span-2">Артикул</div>
           <div className="col-span-2">Количество</div>
-          <div className="col-span-3">Цена за единицу</div>
+          <div className="col-span-2">Цена за единицу</div>
+          <div className="col-span-1">Сумма</div>
           <div className="col-span-2">Действия</div>
         </div>
 
@@ -226,13 +247,13 @@ export const CreateSaleForm = () => {
           const filteredProducts = getFilteredProducts(item.product_name)
           return (
             <div key={i} className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative">
-              <div className="col-span-12 lg:col-span-5 relative">
+              <div className="col-span-12 lg:col-span-3 relative">
                 <label className="text-xs text-gray-500 lg:hidden">Товар</label>
                 <input
                   ref={refs.current[i]?.productInputRef}
                   type="text"
                   value={item.product_name}
-                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0 })}
+                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0, product_code: '' })}
                   onKeyDown={(e) => handleKeyDown(e, i, 'product')}
                   placeholder="Поиск товара..."
                   className="w-full border rounded-lg px-3 py-2.5"
@@ -259,6 +280,13 @@ export const CreateSaleForm = () => {
               </div>
 
               <div className="col-span-6 lg:col-span-2">
+                <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
+                <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">
+                  {item.product_code || '—'}
+                </div>
+              </div>
+
+              <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Количество</label>
                 <input
                   ref={refs.current[i]?.quantityRef}
@@ -278,7 +306,7 @@ export const CreateSaleForm = () => {
                 />
               </div>
 
-              <div className="col-span-6 lg:col-span-3">
+              <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Цена за единицу</label>
                 <input
                   ref={refs.current[i]?.priceRef}
@@ -302,6 +330,12 @@ export const CreateSaleForm = () => {
                   }}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />
+              </div>
+
+              <div className="col-span-6 lg:col-span-1 flex items-end">
+                <div className="w-full text-center font-semibold py-2.5">
+                  {(item.quantity * item.unit_price).toLocaleString()}
+                </div>
               </div>
 
               <div className="col-span-12 lg:col-span-2 flex items-end">

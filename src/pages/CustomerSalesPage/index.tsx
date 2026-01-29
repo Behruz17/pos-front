@@ -5,12 +5,15 @@ import { Calendar, Plus, DollarSign } from 'lucide-react'
 import { CustomerSalesForm } from '@/features/sales/ui/CustomerSalesForm'
 import { useState } from 'react'
 import { CustomerPaymentModal } from '@/widgets/modals/CustomerPaymentModal'
+import { SalesDetailModal } from '@/widgets/modals/SalesDetailModal'
 
 export const CustomerSalesPage = () => {
   const { customerId, storeId } = useParams<{ customerId: string; storeId: string }>()
   const navigate = useNavigate()
   const [showSalesForm, setShowSalesForm] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedOperation, setSelectedOperation] = useState<typeof sales[0] | null>(null)
+  const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear())
   const [selectedType, setSelectedType] = useState<'PAID' | 'DEBT' | 'PAYMENT' | undefined>(undefined)
@@ -204,7 +207,17 @@ export const CustomerSalesPage = () => {
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
                 {sales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-slate-50">
+                  <tr 
+                    key={sale.id} 
+                    className="hover:bg-slate-50 cursor-pointer"
+                    onClick={() => {
+                      if (sale.sale_id) {
+                        setSelectedSaleId(sale.sale_id);
+                      } else {
+                        setSelectedOperation(sale);
+                      }
+                    }}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                       #{sale.id}
                     </td>
@@ -232,6 +245,98 @@ export const CustomerSalesPage = () => {
           </div>
         )}
       </div>
+      
+      {/* Operation Details Modal (for operations without sale_id) */}
+      {selectedOperation && !selectedOperation.sale_id && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-start justify-between px-6 py-4 border-b">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-800">Детали операции</h2>
+                <p className="text-sm text-slate-500">Полная информация об операции</p>
+              </div>
+              
+              <button 
+                onClick={() => setSelectedOperation(null)} 
+                className="text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="px-6 py-5 space-y-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Дата</label>
+                      <div className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50">
+                        {new Date(selectedOperation.date).toLocaleDateString('ru-RU', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Тип операции</label>
+                      <div className={`w-full rounded-lg border px-3 py-2 font-semibold ${selectedOperation.type === 'DEBT' ? 'bg-red-50 border-red-300 text-red-700' : selectedOperation.type === 'PAYMENT' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-blue-50 border-blue-300 text-blue-700'}`}>
+                        {selectedOperation.type === 'DEBT' ? 'В долг' : selectedOperation.type === 'PAYMENT' ? 'Оплата' : 'Оплачено'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Сумма</label>
+                    <div className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 font-semibold text-lg">
+                      {selectedOperation.sum.toLocaleString()} сомони
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Клиент</label>
+                      <div className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50">
+                        {selectedOperation.customer_name}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-1">Магазин</label>
+                      <div className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50">
+                        {selectedOperation.store_name}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row justify-end gap-3 px-6 py-4 border-t bg-slate-50">
+              <button
+                onClick={() => setSelectedOperation(null)}
+                className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-200 transition"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Sales Detail Modal (for operations with sale_id) */}
+      <SalesDetailModal
+        isOpen={!!selectedSaleId}
+        onClose={() => setSelectedSaleId(null)}
+        saleId={selectedSaleId || 0}
+      />
     </div>
   )
 }

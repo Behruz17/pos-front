@@ -13,6 +13,7 @@ export type TCreateCustomerCredentials = {
   full_name: string
   phone?: string
   city?: string
+  store_id: number
 }
 export type TUpdateCustomerCredentials = TCreateCustomerCredentials & { id: TId }
 export type TUpdateBalanceCredentials = {
@@ -46,6 +47,7 @@ export interface TCustomerOperation {
   sum: number;
   type: 'PAID' | 'DEBT' | 'PAYMENT';
   date: string;
+  sale_id?: number;
 }
 
 export interface TCustomerOperationsWithCustomer {

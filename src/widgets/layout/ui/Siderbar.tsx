@@ -28,22 +28,22 @@ const navigation = [
   //   label: 'транзакция',
   //   icon: ShoppingCart,
   // },
-  {
-    to: paths.sales(),
-    label: 'Продажи',
-    icon: CreditCard,
-  },
+  // {
+  //   to: paths.sales(),
+  //   label: 'Продажи',
+  //   icon: CreditCard,
+  // },
 
   // {
   //   to: paths.stockHistory(),
   //   label: 'История изменений',
   //   icon: History,
   // },
-  {
-    to: paths.customers(),
-    label: 'Клиенты',
-    icon: History,
-  },
+  // {
+  //   to: paths.customers(),
+  //   label: 'Клиенты',
+  //   icon: History,
+  // },
   {
     to: paths.stores(),
     label: 'Магазины',
@@ -54,11 +54,11 @@ const navigation = [
     label: 'Пользователи',
     icon: Users,
   },
-  {
-    to: paths.suppliers(),
-    label: 'Поставщики',
-    icon: Truck,
-  },
+  // {
+  //   to: paths.suppliers(),
+  //   label: 'Поставщики',
+  //   icon: Truck,
+  // },
   {
     to: paths.missingProducts(),
     label: 'Недостающие товары',

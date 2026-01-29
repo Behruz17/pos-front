@@ -91,6 +91,7 @@ export const router = createBrowserRouter([
         path: paths.expenses(),
         element: <ExpensesPage />,
       },
+
       {
         path: paths.customerSales(':customerId', ':storeId'),
         element: <CustomerSalesPage />,      },
@@ -101,12 +102,13 @@ export const router = createBrowserRouter([
         path: paths.suppliers(),
         element: <SuppliersPage />,      },
       {
-        path: paths.missingProducts(),
-        element: <MissingProductsPage />,      },
-      {
         path: paths.customers(':id'),
         element: <CustomerDetailPage />,
       },
+      {
+        path: paths.missingProducts(),
+        element: <MissingProductsPage />,      },
+
       {
         path: '*',
         element: <Navigate to={paths.home()} replace />,

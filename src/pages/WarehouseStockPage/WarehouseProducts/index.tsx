@@ -2,10 +2,11 @@ import { useGetWarehouseProductsQuery, useGetWarehouseSuppliersQuery } from '@/f
 import { useGetSupplierOperationsQuery } from '@/features/suppliers/api/suppliers.api'
 import { SupplierPaymentModal } from '@/widgets/modals/SupplierPaymentModal';
 import { OperationDetailsModal } from '@/widgets/modals/OperationDetailsModal';
+import CreateSupplierModal from '@/widgets/modals/CreateSupplierModal';
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { ProductImage } from '@/shared/ui/ProductImageю'
 import { Td, Th } from '@/shared/ui/Table'
-import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus } from 'lucide-react'
+import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus, Pencil } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import AdminReceiptForm from '@/features/receipt/ui/AdminReceiptForm'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
@@ -25,13 +26,16 @@ export const WarehouseProducts = ({
   const [selectedSupplier, setSelectedSupplier] = useState<{id: number, name: string} | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedOperation, setSelectedOperation] = useState<any>(null)
+  const [editingSupplierId, setEditingSupplierId] = useState<number | null>(null)
+  const [addingSupplier, setAddingSupplier] = useState<boolean>(false)
   const { isAdmin } = useAuth()
 
   const { 
     data: suppliersData, 
     isLoading: suppliersLoading,
     isError: suppliersError,
-    error: suppliersErrorMsg
+    error: suppliersErrorMsg,
+    refetch: refetchSuppliers
   } = useGetWarehouseSuppliersQuery(warehouseId)
 
   const { 
@@ -245,14 +249,31 @@ export const WarehouseProducts = ({
 
       {tab === 'suppliers' && !selectedSupplier && (
         <div>
-          <div className="relative max-w-sm mb-6">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск поставщика…"
-              className="w-full rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <div className="relative max-w-sm">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Поиск поставщика…"
+                className="w-full rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            
+            {isAdmin && (
+              <button
+                onClick={() => setAddingSupplier(true)}
+                className="
+                inline-flex items-center justify-center gap-2
+                px-4 py-2 rounded-lg
+                bg-blue-600 text-white text-sm font-medium
+                hover:bg-blue-700 transition
+              "
+              >
+                <Truck size={16} />
+                Добавить поставщика
+              </button>
+            )}
           </div>
           
           {suppliersLoading ? (
@@ -263,6 +284,23 @@ export const WarehouseProducts = ({
             </div>
           ) : suppliersData?.suppliers && suppliersData.suppliers.length > 0 ? (
             <div className="space-y-4">
+              {/* Total Balance Summary */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                <div className="flex justify-between items-center">
+                  <div className="text-blue-800">
+                    <span className="font-semibold">Общий баланс всех поставщиков: </span>
+                    <span className="text-xl font-bold">
+                      {suppliersData.suppliers
+                        .reduce((total: number, supplier: any) => total + Number(supplier.balance || 0), 0)
+                        .toFixed(2)} с
+                    </span>
+                  </div>
+                  <div className="text-sm text-blue-600">
+                    {suppliersData.suppliers.length} поставщиков
+                  </div>
+                </div>
+              </div>
+              
               <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-xl">
                 <table className="w-full border-collapse">
                   <thead className="bg-slate-50">
@@ -295,6 +333,20 @@ export const WarehouseProducts = ({
                         <Td right className="text-slate-500 text-sm">
                             —
                         </Td>
+                        {isAdmin && (
+                          <Td right>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent triggering the row click
+                                setEditingSupplierId(supplier.id);
+                              }}
+                              className="p-1.5 rounded-md border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-300"
+                              title="Редактировать поставщика"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          </Td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -303,6 +355,23 @@ export const WarehouseProducts = ({
               
               {/* Mobile cards */}
               <div className="sm:hidden space-y-3">
+                {/* Total Balance Summary for Mobile */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-3">
+                  <div className="flex justify-between items-center">
+                    <div className="text-blue-800">
+                      <span className="font-semibold">Общий баланс: </span>
+                      <span className="text-lg font-bold">
+                        {suppliersData.suppliers
+                          .reduce((total: number, supplier: any) => total + Number(supplier.balance || 0), 0)
+                          .toFixed(2)} с
+                      </span>
+                    </div>
+                    <div className="text-sm text-blue-600">
+                      {suppliersData.suppliers.length} поставщиков
+                    </div>
+                  </div>
+                </div>
+                
                 {suppliersData.suppliers
                   .filter((supplier: any) => 
                     supplier.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -323,6 +392,21 @@ export const WarehouseProducts = ({
                     <div className="mt-2 text-sm text-slate-500">
                       Последняя поставка: —
                     </div>
+                    {isAdmin && (
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering the row click
+                            setEditingSupplierId(supplier.id);
+                          }}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-sm"
+                          title="Редактировать поставщика"
+                        >
+                          <Pencil size={14} />
+                          Редактировать
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -357,6 +441,23 @@ export const WarehouseProducts = ({
               <DollarSign size={16} />
               Выполнить оплату
             </button>
+          </div>
+          
+          {/* Supplier Balance Display */}
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+            <div className="flex justify-between items-center">
+              <div className="text-green-800">
+                <span className="font-semibold">Текущий баланс поставщика: </span>
+                <span className="text-xl font-bold">
+                  {suppliersData?.suppliers
+                    ?.find((s: any) => s.id === selectedSupplier.id)?.balance
+                    ?.toFixed(2) || '0.00'} с
+                </span>
+              </div>
+              <div className="text-sm text-green-600">
+                {selectedSupplier.name}
+              </div>
+            </div>
           </div>
 
           {receiptsLoading ? (
@@ -458,8 +559,9 @@ export const WarehouseProducts = ({
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
           onSuccess={() => {
-            // Refresh the operations data after successful payment
+            // Refresh both operations and suppliers data after successful payment
             refetch();
+            refetchSuppliers();
           }}
         />
       )}
@@ -471,6 +573,28 @@ export const WarehouseProducts = ({
           operation={selectedOperation}
           supplierId={selectedSupplier?.id || 0}
           warehouseId={warehouseId}
+        />
+      )}
+
+      {editingSupplierId !== null && isAdmin && (
+        <CreateSupplierModal 
+          supplierId={editingSupplierId} 
+          warehouseId={warehouseId}
+          onClose={() => {
+            setEditingSupplierId(null);
+            refetchSuppliers(); // Refresh suppliers data after editing
+          }} 
+        />
+      )}
+
+      {addingSupplier && isAdmin && (
+        <CreateSupplierModal 
+          supplierId={null} 
+          warehouseId={warehouseId}
+          onClose={() => {
+            setAddingSupplier(false);
+            refetchSuppliers(); // Refresh suppliers data after adding
+          }} 
         />
       )}
     </div>

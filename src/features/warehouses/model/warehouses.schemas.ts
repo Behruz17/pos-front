@@ -75,9 +75,10 @@ export const warehouseSuppliersSchema = z.object({
     z.object({
       id: z.number(),
       name: z.string(),
-      phone: z.string(),
+      phone: z.string().nullable(),
       balance: z.coerce.number(),
       status: z.number(),
+      warehouse_id: z.number(),
       created_at: z.string(),
       updated_at: z.string(),
     })
