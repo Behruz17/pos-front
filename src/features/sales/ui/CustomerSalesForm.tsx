@@ -318,6 +318,21 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
         })}
       </div>
 
+      {/* Total Summary */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6">
+        <div className="flex justify-between items-center">
+          <div className="text-blue-800">
+            <span className="font-semibold">Итого : </span>
+            <span className="text-xl font-bold">
+              {items.reduce((total, item) => total + (item.quantity * item.unit_price), 0).toLocaleString()} с
+            </span>
+          </div>
+          <div className="text-sm text-blue-600">
+            {items.length} товар{items.length !== 1 ? 'ов' : ''}
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <button
           type="button"

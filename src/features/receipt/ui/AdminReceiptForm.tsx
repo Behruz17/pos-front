@@ -579,6 +579,10 @@ const AdminReceiptForm = ({
       toast.error('Ошибка при оформлении прихода');
     }
   }
+const totalAmount = items.reduce(
+  (sum, item) => sum + Number(item.amount || 0),
+  0
+);
 
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
@@ -890,6 +894,21 @@ const AdminReceiptForm = ({
           </div>
         </div>
       ))}
+      <div className="grid grid-cols-12 gap-2 bg-gray-100 border p-2 rounded-xl font-semibold text-sm mt-2">
+  <div className="col-span-12 lg:col-span-9 text-right flex items-center justify-end">
+    Итого:
+  </div>
+
+  <div className="col-span-6 lg:col-span-1">
+    <input
+      value={totalAmount.toLocaleString()}
+      readOnly
+      className="w-full border bg-gray-200 rounded px-2 py-1.5 text-sm font-semibold text-right"
+    />
+  </div>
+
+  <div className="col-span-12 lg:col-span-1"></div>
+</div>
 
       <div className="flex flex-wrap gap-3 pt-4 items-center">
         <button
