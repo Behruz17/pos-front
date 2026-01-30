@@ -193,7 +193,7 @@ const CustomersPage = () => {
       )}
 
       {modalId !== undefined && isAdmin && (
-        <CustomerFormModal customerId={modalId} onClose={() => setModalId(undefined)} />
+        <CustomerFormModal customerId={modalId} storeId={0} onClose={() => setModalId(undefined)} />
       )}
 
       {deleteId && isAdmin && (

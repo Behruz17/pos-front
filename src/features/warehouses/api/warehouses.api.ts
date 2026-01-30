@@ -65,7 +65,18 @@ const warehousesApi = baseApi.injectEndpoints({
         url: `/warehouses/${warehouseId}/suppliers`,
         method: 'GET',
       }),
-      transformResponse: (response: unknown) => warehouseSuppliersSchema.parseAsync(response),
+      transformResponse: async (response: unknown) => {
+        const parsed = await warehouseSuppliersSchema.parseAsync(response);
+        return {
+          ...parsed,
+          suppliers: parsed.suppliers.map(supplier => ({
+            id: supplier.id,
+            name: supplier.name,
+            phone: supplier.phone || '', // Convert null to empty string
+            balance: supplier.balance,
+          }))
+        };
+      },
     }),
   }),
 })

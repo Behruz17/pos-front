@@ -26,7 +26,7 @@ const salesApi = baseApi.injectEndpoints({
         url: `/sales/${id}`,
         method: 'GET',
       }),
-      providesTags: (result, error, id) => [{ type: 'Sales', id }],
+      providesTags: (_result, _error, id) => [{ type: 'Sales', id }],
     }),
     createSale: build.mutation<TSale & TDefaultResponse, TCreateSale>({
       query: (body) => ({
@@ -56,7 +56,7 @@ const salesApi = baseApi.injectEndpoints({
         url: `/retail-debtors/${id}/operations`,
         method: 'GET',
       }),
-      providesTags: (result, error, id) => [{ type: 'RetailDebtors', id }],
+      providesTags: (_result, _error, id) => [{ type: 'RetailDebtors', id }],
     }),
   }),
 })

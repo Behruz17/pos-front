@@ -22,6 +22,9 @@ export interface TSale {
   store_name?: string
   warehouse_id?: number
   warehouse_name?: string
+  type?: 'SALE' | 'PAYMENT'
+  amount?: number
+  transaction_id?: number
 }
 
 export interface TCreateSale {

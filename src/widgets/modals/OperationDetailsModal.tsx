@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { X, Package, Hash, Calendar, Tag, Weight, Archive, Coins } from 'lucide-react'
+import { X, Package, Tag, Archive, Coins } from 'lucide-react'
 import { useGetStockReceiptItemsQuery } from '@/features/receipt/api/stockReceiptItems.api'
 import { Loading } from '@/shared/ui/Loading'
 import { ProductImage } from '@/shared/ui/ProductImageю'
-import type { TStockReceiptItem } from '@/features/receipt/api/stockReceiptItems.api'
+
 
 interface OperationDetailsModalProps {
   isOpen: boolean
@@ -41,16 +41,7 @@ export const OperationDetailsModal = ({
     skip: !isOpen || operation.type !== 'RECEIPT' || !operation.receipt_id  // Skip if not RECEIPT or no receipt_id
   })
 
-  // Prepare debug info for display
-  const debugInfo = {
-    operation,
-    supplierId,
-    warehouseId,
-    receiptItems,
-    isLoading,
-    isError,
-    error: error ? JSON.stringify(error, null, 2) : null
-  }
+
 
   useEffect(() => {
     if (isOpen) {

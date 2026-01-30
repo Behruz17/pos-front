@@ -55,7 +55,16 @@ const suppliersApi = baseApi.injectEndpoints({
         url: `/suppliers/${supplierId}/operations?warehouseId=${warehouseId}`,
         method: 'GET',
       }),
-      transformResponse: (response: unknown) => supplierOperationsSchema.parse(response),
+      transformResponse: (response: unknown) => {
+        const parsed = supplierOperationsSchema.parse(response);
+        return {
+          ...parsed,
+          operations: parsed.operations.map(op => ({
+            ...op,
+            type: op.type as 'RECEIPT' | 'PAYMENT'
+          }))
+        };
+      },
     }),
     createSupplierPayment: build.mutation<{
       operation_id: number;

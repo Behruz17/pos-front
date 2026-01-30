@@ -97,16 +97,16 @@ export const ProductCard = ({
                 </div>
 
                 <div>
-                  Добавлен: <span className="text-slate-700">{formatDateTime(product.created_at)}</span>
+                  Добавлен: <span className="text-slate-700">{formatDateTime(product.created_at ?? '')}</span>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <Stat label="Всего штук" value={stock.total_pieces} />
-              <Stat label="Вес, кг" value={stock.weight_kg} />
-              <Stat label="Объём, м³" value={stock.volume_cbm} />
-              <Stat label="Обновлено" value={formatDateTime(stock.updated_at)} small />
+              <Stat label="Вес, кг" value={stock.weight_kg ?? ''} />
+              <Stat label="Объём, м³" value={stock.volume_cbm ?? ''} />
+              <Stat label="Обновлено" value={formatDateTime(stock.updated_at ?? '')} small />
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">
@@ -135,7 +135,7 @@ export const ProductCard = ({
   )
 }
 
-const Stat = ({ label, value, small }: { label: string; value: number | string; small?: boolean }) => (
+const Stat = ({ label, value, small }: { label: string; value: number | string | null; small?: boolean }) => (
   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
     <div className="text-xs text-slate-500">{label}</div>
     <div className={`font-semibold text-slate-800 ${small ? 'text-sm' : 'text-lg'}`}>{value}</div>

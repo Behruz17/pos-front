@@ -39,7 +39,8 @@ const ProductsPage = () => {
   }
 
   if (isLoading) return <Loading text="товаров" />
-
+  
+  
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -336,6 +337,11 @@ const ProductsPage = () => {
               <div className="flex items-center gap-2">
                 <span className="font-medium">{filtered.length}</span>
                 <span>товаров</span>
+              </div>
+                <div className="flex items-center gap-2">
+                    <span>Итого</span>
+                <span className="font-medium">{filtered.reduce((sum, p) => sum + parseInt(p.purchase_cost || '0'), 0)} С</span>
+              
               </div>
               <div className="text-slate-400">
                 <span className="font-medium">Общий остаток:</span>

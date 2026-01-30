@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router'
-import { LogOut, Package, History, ShoppingCart, Warehouse, X, Users, CreditCard, RotateCcw, Truck } from 'lucide-react'
+import { LogOut, Package, Warehouse, X, Users } from 'lucide-react'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { paths } from '@/app/routers/constants'
 import { useLogoutMutation } from '@/features/auth/api/auth.api'

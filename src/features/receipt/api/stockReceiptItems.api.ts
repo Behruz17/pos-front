@@ -1,5 +1,5 @@
 import { baseApi } from '@/shared/request/baseApi'
-import type { TDefaultResponse } from '@/shared/types'
+
 import { z } from 'zod'
 
 // Schema for stock receipt items

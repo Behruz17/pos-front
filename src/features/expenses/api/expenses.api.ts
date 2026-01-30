@@ -23,7 +23,7 @@ const expensesApi = baseApi.injectEndpoints({
         url: `/expenses/${id}`,
         method: 'GET',
       }),
-      providesTags: (result, error, id) => [{ type: 'Expenses', id: id.toString() }],
+      providesTags: (_result, _error, id) => [{ type: 'Expenses', id: id.toString() }],
     }),
     createExpense: build.mutation<TExpense & TDefaultResponse, TCreateExpense>({
       query: (body) => ({
@@ -39,7 +39,7 @@ const expensesApi = baseApi.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
+      invalidatesTags: (_result, _error, { id }) => [
         { type: 'Expenses', id: id.toString() },
         'Expenses',
       ],

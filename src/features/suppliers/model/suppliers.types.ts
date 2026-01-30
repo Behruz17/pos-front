@@ -1,5 +1,5 @@
 import type z from 'zod'
-import type { supplierDtoSchema, supplierOperationsSchema } from './suppliers.schemas'
+import type { supplierDtoSchema } from './suppliers.schemas'
 import type { TId } from '@/shared/types'
 
 export type TSupplierDto = z.infer<typeof supplierDtoSchema>

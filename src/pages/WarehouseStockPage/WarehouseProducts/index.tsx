@@ -11,6 +11,38 @@ import { useMemo, useState } from 'react'
 import AdminReceiptForm from '@/features/receipt/ui/AdminReceiptForm'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 
+const TabComponent = ({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) => (
+  <button
+    onClick={onClick}
+    className={`
+        flex items-center justify-center gap-2
+        px-4 py-2 rounded-xl sm:rounded-none
+        text-sm font-medium transition
+        w-full sm:w-auto
+
+        ${
+          active
+            ? 'bg-blue-50 text-blue-600 sm:bg-transparent sm:border-b-2 sm:border-blue-600'
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 sm:hover:bg-transparent sm:border-b-2 sm:border-transparent'
+        }
+      `}
+  >
+    <span className="hidden sm:inline-flex">{icon}</span>
+    {label}
+  </button>
+)
+
+
 export const WarehouseProducts = ({
   warehouseId,
   onBack,
@@ -20,12 +52,12 @@ export const WarehouseProducts = ({
   onBack: () => void
   onSelectProduct: (id: number) => void
 }) => {
-  const { data, isLoading, isError, error } = useGetWarehouseProductsQuery(warehouseId)
+  const { data, isLoading, isError } = useGetWarehouseProductsQuery(warehouseId)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'products' | 'suppliers' | 'receipt'>('products')
   const [selectedSupplier, setSelectedSupplier] = useState<{id: number, name: string} | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedOperation, setSelectedOperation] = useState<any>(null)
+  const [selectedOperation, setSelectedOperation] = useState<{ id: number; type: string; date: string; sum: number; receipt_id?: number } | null>(null)
   const [editingSupplierId, setEditingSupplierId] = useState<number | null>(null)
   const [addingSupplier, setAddingSupplier] = useState<boolean>(false)
   const { isAdmin } = useAuth()
@@ -34,7 +66,7 @@ export const WarehouseProducts = ({
     data: suppliersData, 
     isLoading: suppliersLoading,
     isError: suppliersError,
-    error: suppliersErrorMsg,
+
     refetch: refetchSuppliers
   } = useGetWarehouseSuppliersQuery(warehouseId)
 
@@ -42,7 +74,7 @@ export const WarehouseProducts = ({
     data: receiptsData, 
     isLoading: receiptsLoading,
     isError: receiptsError,
-    error: receiptsErrorMsg,
+
     refetch
   } = useGetSupplierOperationsQuery({ 
     supplierId: selectedSupplier?.id || 0, 
@@ -74,37 +106,6 @@ export const WarehouseProducts = ({
   if (!data) {
     return <div className="text-sm text-slate-500">На этом складе пока нет товаров</div>;
   }
-
-  const TabComponent = ({
-    active,
-    onClick,
-    icon,
-    label,
-  }: {
-    active: boolean
-    onClick: () => void
-    icon: React.ReactNode
-    label: string
-  }) => (
-    <button
-      onClick={onClick}
-      className={`
-          flex items-center justify-center gap-2
-          px-4 py-2 rounded-xl sm:rounded-none
-          text-sm font-medium transition
-          w-full sm:w-auto
-    
-          ${
-            active
-              ? 'bg-blue-50 text-blue-600 sm:bg-transparent sm:border-b-2 sm:border-blue-600'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 sm:hover:bg-transparent sm:border-b-2 sm:border-transparent'
-          }
-        `}
-    >
-      <span className="hidden sm:inline-flex">{icon}</span>
-      {label}
-    </button>
-  )
 
   return (
     <div className="space-y-6">
@@ -291,7 +292,7 @@ export const WarehouseProducts = ({
                     <span className="font-semibold">Общий баланс всех поставщиков: </span>
                     <span className="text-xl font-bold">
                       {suppliersData.suppliers
-                        .reduce((total: number, supplier: any) => total + Number(supplier.balance || 0), 0)
+                        .reduce((total: number, supplier: { balance?: string | number }) => total + Number(supplier.balance || 0), 0)
                         .toFixed(2)} с
                     </span>
                   </div>
@@ -313,11 +314,11 @@ export const WarehouseProducts = ({
                   </thead>
                   <tbody>
                     {suppliersData.suppliers
-                      .filter((supplier: any) => 
+                      .filter((supplier: { name: string; phone: string }) => 
                         supplier.name.toLowerCase().includes(search.toLowerCase()) ||
                         supplier.phone.includes(search)
                       )
-                      .map((supplier: any) => (
+                      .map((supplier: { id: number; name: string; phone: string; balance: number }) => (
                       <tr 
                         key={supplier.id} 
                         className="border-t hover:bg-slate-50 transition cursor-pointer"
@@ -362,7 +363,7 @@ export const WarehouseProducts = ({
                       <span className="font-semibold">Общий баланс: </span>
                       <span className="text-lg font-bold">
                         {suppliersData.suppliers
-                          .reduce((total: number, supplier: any) => total + Number(supplier.balance || 0), 0)
+                          .reduce((total: number, supplier: { balance?: string | number }) => total + Number(supplier.balance || 0), 0)
                           .toFixed(2)} с
                       </span>
                     </div>
@@ -373,11 +374,11 @@ export const WarehouseProducts = ({
                 </div>
                 
                 {suppliersData.suppliers
-                  .filter((supplier: any) => 
+                  .filter((supplier: { name: string; phone: string }) => 
                     supplier.name.toLowerCase().includes(search.toLowerCase()) ||
                     supplier.phone.includes(search)
                   )
-                  .map((supplier: any) => (
+                  .map((supplier: { id: number; name: string; phone: string; balance: number }) => (
                   <div 
                     key={supplier.id} 
                     className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:bg-slate-50 transition"
@@ -450,7 +451,7 @@ export const WarehouseProducts = ({
                 <span className="font-semibold">Текущий баланс поставщика: </span>
                 <span className="text-xl font-bold">
                   {suppliersData?.suppliers
-                    ?.find((s: any) => s.id === selectedSupplier.id)?.balance
+                    ?.find((s: { id: number; balance: number }) => s.id === selectedSupplier.id)?.balance
                     ?.toFixed(2) || '0.00'} с
                 </span>
               </div>
@@ -481,7 +482,7 @@ export const WarehouseProducts = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {receiptsData.operations.map((operation: any, index: number) => (
+                    {receiptsData.operations.map((operation: { id: number; type: string; date: string; sum: number }, index: number) => (
                       <tr 
                         key={operation.id} 
                         className="border-t hover:bg-slate-50 transition cursor-pointer"
@@ -508,7 +509,7 @@ export const WarehouseProducts = ({
               {/* Mobile cards */}
               <div className="sm:hidden space-y-3">
 
-                {receiptsData.operations.map((operation: any) => (
+                {receiptsData.operations.map((operation: { id: number; type: string; date: string; sum: number }) => (
                   <div 
                     key={operation.id} 
                     className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:bg-slate-50 transition"
@@ -546,7 +547,7 @@ export const WarehouseProducts = ({
           </div>
           <AdminReceiptForm 
             preselectedWarehouseId={warehouseId.toString()}
-            hideWarehouseSelection={true}
+
           />
         </div>
       )}

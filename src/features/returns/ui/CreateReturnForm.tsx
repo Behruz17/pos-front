@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, Trash2, PackageMinus } from 'lucide-react'
+import { Trash2, PackageMinus } from 'lucide-react'
 import { useCreateReturnMutation } from '../api/returns.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { useGetStoresQuery } from '@/features/stores/api/stores.api'
@@ -82,10 +82,7 @@ export const CreateReturnForm = () => {
   }
 
   const addItem = () => setItems((p) => [...p, emptyItem])
-  const addMultipleItems = (count: number) => {
-    const newItems = Array(count).fill(emptyItem)
-    setItems((prev) => [...prev, ...newItems])
-  }
+
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
   const isInvalid = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0)
@@ -271,7 +268,7 @@ export const CreateReturnForm = () => {
                   <div
                     ref={(el) => {
                       if (el && refs.current[i]) {
-                        refs.current[i].productDropdownRef = el
+                        refs.current[i].productDropdownRef = { current: el }
                       }
                     }}
                     className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
@@ -351,7 +348,7 @@ export const CreateReturnForm = () => {
                   <button
                     ref={(el) => {
                       if (el && refs.current[i]) {
-                        refs.current[i].removeButtonRef = el
+                        refs.current[i].removeButtonRef = { current: el }
                       }
                     }}
                     onClick={() => removeItem(i)}

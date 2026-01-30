@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { PackagePlus, Calendar, Store, Edit3, Trash2 } from 'lucide-react';
+import { PackagePlus, Calendar, Edit3, Trash2 } from 'lucide-react';
 import { CreateExpenseForm } from '@/features/expenses/ui/CreateExpenseForm';
 import { useGetExpensesQuery, useDeleteExpenseMutation } from '@/features/expenses/api/expenses.api';
 import { formatDateTime } from '@/shared/formatDateTime';
 import DeleteModal from '@/widgets/modals/DeleteModal';
 
 export const ExpensesPage = () => {
-  const { data: expenses = [], isLoading, refetch } = useGetExpensesQuery();
+  const { data: expenses = [], isLoading, refetch } = useGetExpensesQuery({});
   const [deleteExpense, { isLoading: isDeleting }] = useDeleteExpenseMutation();
   const [deleteId, setDeleteId] = useState<number | null>(null);
 

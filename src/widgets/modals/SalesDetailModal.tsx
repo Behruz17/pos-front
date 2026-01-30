@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { X, Package, Hash, Calendar, User, Coins } from 'lucide-react';
 import { Loading } from '@/shared/ui/Loading';
-import { ProductImage } from '@/shared/ui/ProductImageю';
-import type { TSale, TSaleItem } from '@/features/sales/model/sales.types';
+
+
 import { useGetSaleByIdQuery } from '@/features/sales/api/sales.api';
 
 interface SalesDetailModalProps {

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { usePutProductMutation } from '@/features/products/api/products.api'
-import type { TGetWarehousesProductDetail } from '@/features/warehouses/model/warehouses.types'
+
 import { X, Upload } from 'lucide-react'
 import { useState } from 'react'
 
@@ -12,7 +12,7 @@ interface ProductInfo {
   product_code?: string | null
   notification_threshold?: number
   image?: string
-  created_at?: string
+  created_at?: string | null
 }
 
 const EditProductModal = ({

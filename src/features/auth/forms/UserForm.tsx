@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useRegisterMutation } from '../api/auth.api'
 import type { TUserRole } from '../model'
 import { useGetStoresQuery } from '@/features/stores/api/stores.api'
-import { User } from 'lucide-react'
+
 
 export const UserForm = () => {
   const [register, { isLoading }] = useRegisterMutation()

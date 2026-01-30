@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, Trash2, PackagePlus } from 'lucide-react'
+import { Trash2, PackagePlus } from 'lucide-react'
 import { useCreateSaleMutation } from '../api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { useGetStoresQuery } from '@/features/stores/api/stores.api'
@@ -79,10 +79,7 @@ export const CreateSaleForm = () => {
   }
 
   const addItem = () => setItems((p) => [...p, emptyItem])
-  const addMultipleItems = (count: number) => {
-    const newItems = Array(count).fill(emptyItem)
-    setItems((prev) => [...prev, ...newItems])
-  }
+
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
   const isInvalid = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0)

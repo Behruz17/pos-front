@@ -79,11 +79,7 @@ export const CreateProductModal = ({ onClose }: { onClose: () => void }) => {
     setProducts((prev) => [...prev, productToDuplicate])
   }
 
-  const clearAllProducts = () => {
-    if (window.confirm('Вы уверены, что хотите очистить все товары?')) {
-      setProducts([{ name: '', manufacturer: '', product_code: '', notification_threshold: '', image: null }])
-    }
-  }
+
 
   // Function to check if at least one product has all required fields filled
   const isAnyProductValid = () => {

@@ -41,7 +41,7 @@ export const productsApi = baseApi.injectEndpoints({
         url: '/products/missing',
         method: 'GET',
       }),
-      providesTags: ['MissingProducts'],
+      providesTags: ['Products'],
     }),
   }),
 })
