@@ -7,6 +7,7 @@ export const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
     return <div />
   }
 
+
   return (
     <header className="bg-white shadow-sm p-4 flex items-center justify-between">
       <button onClick={toggleSidebar} className="md:hidden text-gray-700">

@@ -18,6 +18,7 @@ export type TLoginCredentials = {
 export type TRegisterCredentials = TLoginCredentials & {
   name?: string
   role: TUserRole
+  store_id?: number | null
 }
 export type TLoginSuccessResponse = z.infer<typeof loginSuccessSchema>
 export type TRegisterSuccessResponse = TLoginSuccessResponse['user'] & {

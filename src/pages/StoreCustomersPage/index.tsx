@@ -14,6 +14,7 @@ import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { Trash2, PackagePlus, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import CustomerFormModal from '@/widgets/modals/CustomerFormModal'
+import { useAuth } from '@/features/auth/hooks/auth.hooks'
 
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
@@ -29,7 +30,7 @@ export const StoreCustomersPage = () => {
   const [selectedDay, setSelectedDay] = useState<number | undefined>(new Date().getDate())
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear())
-  
+   const { me } = useAuth()
   const { data, isLoading, isError } = useGetStoreCustomersQuery(Number(storeId))
   const { data: expenses = [], isLoading: isExpensesLoading, refetch } = useGetExpensesQuery({
     store_id: Number(storeId),
@@ -74,6 +75,7 @@ export const StoreCustomersPage = () => {
   }
 
   const { store, customers } = data
+
 
   // Filter sales by store_id (already done server-side, but keeping for safety)
   // const storeSales = allSales.filter(sale => sale.store_id === Number(storeId))
@@ -240,7 +242,11 @@ export const StoreCustomersPage = () => {
               <h3 className="text-lg font-semibold text-slate-800">Клиенты магазина</h3>
               <button 
                 onClick={() => setShowCreateCustomerModal(true)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                disabled={me?.store_id !== Number(storeId)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${me?.store_id === Number(storeId) 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                title={me?.store_id !== Number(storeId) ? 'Вы можете добавлять клиентов только в свой магазин' : ''}
               >
                 <Plus size={16} />
                 Добавить клиента
@@ -319,7 +325,11 @@ export const StoreCustomersPage = () => {
               <h3 className="text-lg font-semibold text-slate-800">Расходы магазина</h3>
               <button 
                 onClick={() => setShowExpenseForm(!showExpenseForm)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                disabled={me?.store_id !== Number(storeId)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${me?.store_id === Number(storeId) 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                title={me?.store_id !== Number(storeId) ? 'Вы можете добавлять расходы только в свой магазин' : ''}
               >
                 <Plus size={16} />
                 Добавить расход
@@ -665,7 +675,11 @@ export const StoreCustomersPage = () => {
                 </button>
                 <button 
                   onClick={() => setShowSalesForm(!showSalesForm)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  disabled={me?.store_id !== Number(storeId)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${me?.store_id === Number(storeId) 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                  title={me?.store_id !== Number(storeId) ? 'Вы можете создавать продажи только в свой магазин' : ''}
                 >
                   <Plus size={16} />
                   Создать продажу

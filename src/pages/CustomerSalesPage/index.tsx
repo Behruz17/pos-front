@@ -1,11 +1,13 @@
 import { useParams, useNavigate } from 'react-router'
 import { useGetCustomerOperationsQuery } from '@/features/customers/api/customers.api'
 import ButtonBack from '@/shared/ui/ButtonBack'
-import { Calendar, Plus, DollarSign } from 'lucide-react'
+import { Calendar, Plus, DollarSign, Download } from 'lucide-react'
 import { CustomerSalesForm } from '@/features/sales/ui/CustomerSalesForm'
 import { useState } from 'react'
 import { CustomerPaymentModal } from '@/widgets/modals/CustomerPaymentModal'
 import { SalesDetailModal } from '@/widgets/modals/SalesDetailModal'
+import * as XLSX from 'xlsx'
+import { toast } from 'sonner'
 
 export const CustomerSalesPage = () => {
   const { customerId, storeId } = useParams<{ customerId: string; storeId: string }>()
@@ -37,6 +39,55 @@ export const CustomerSalesPage = () => {
   const { operations: sales } = data
   const customerName = 'customer' in data ? data.customer.full_name : 'Операции магазина'
 
+  // Handle export to Excel
+  const handleExportOperations = () => {
+    if (sales.length === 0) {
+      toast.error('Нет данных для экспорта');
+      return;
+    }
+    
+    try {
+      // Prepare data for export
+      const exportData = sales.map((operation, index) => ({
+        '#': (index + 1).toString(),
+        'Дата': new Date(operation.date).toLocaleDateString('ru-RU'),
+        'Сумма': Number(operation.sum).toFixed(2),
+        'Тип': operation.type === 'DEBT' ? 'В долг' : operation.type === 'PAYMENT' ? 'Оплата' : 'Оплачено',
+        'Магазин': operation.store_name || '—',
+      }));
+      
+      // Add total row
+      const totalSum = sales
+        .reduce((total, operation) => total + (Number(operation.sum) || 0), 0);
+      
+      exportData.push({
+        '#': 'ИТОГО',
+        'Дата': '',
+        'Сумма': totalSum.toFixed(2),
+        'Тип': '',
+        'Магазин': '',
+      });
+      
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Операции клиента');
+      
+      // Generate filename with timestamp
+      const fileName = `operations_${customerName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Export file
+      XLSX.writeFile(workbook, fileName);
+      
+      toast.success('Файл успешно экспортирован');
+    } catch (error) {
+      console.error('Error exporting operations:', error);
+      toast.error('Произошла ошибка при экспорте в Excel');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <ButtonBack onBack={() => navigate(-1)} />
@@ -46,11 +97,18 @@ export const CustomerSalesPage = () => {
         <p className="text-sm text-slate-500">Операции клиента</p>
       </div>
 
-      {/* Add Sales Form Toggle Button */}
+      {/* Action Buttons */}
       <div className="flex justify-end gap-3 mb-4">
         <button 
-          onClick={() => setShowPaymentModal(true)}
+          onClick={handleExportOperations}
           className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+        >
+          <Download size={16} />
+          Экспорт в Excel
+        </button>
+        <button 
+          onClick={() => setShowPaymentModal(true)}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           <DollarSign size={16} />
           Оплата

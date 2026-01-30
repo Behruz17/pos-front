@@ -2,9 +2,11 @@ import { paths } from '@/app/routers/constants'
 import { useGetUsersQuery, useDeleteUserMutation } from '@/features/auth/api/auth.api'
 import { UserForm } from '@/features/auth/forms/UserForm'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
+import { useGetStoresQuery } from '@/features/stores/api/stores.api'
 import { formatDateTime } from '@/shared/formatDateTime'
 import { Loading } from '@/shared/ui/Loading'
 import { Trash2, User, Shield } from 'lucide-react'
+
 import { useNavigate } from 'react-router'
 
 const UsersPage = () => {
@@ -12,18 +14,25 @@ const UsersPage = () => {
   const [deleteUser] = useDeleteUserMutation()
   const navigate = useNavigate()
   const { isAdmin, me } = useAuth()
-
+  const { data: stores = []} = useGetStoresQuery()
   const onDelete = async (id?: number) => {
     if (!id) return
     await deleteUser(id).unwrap()
   }
 
+  // Helper function to get store name by ID
+  const getStoreName = (storeId?: number | null) => {
+    if (!storeId) return '—';
+    const store = stores.find(item => item.id === storeId);
+    return store ? store.name : 'Не найден';
+  }
+
   if (!isAdmin) {
     navigate(paths.home())
   }
+  
 
   if (isLoading) return <Loading text="работников" />
-
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
@@ -43,7 +52,9 @@ const UsersPage = () => {
                   <th className="px-4 py-3 font-medium">Логин</th>
                   <th className="px-4 py-3 font-medium">Имя</th>
                   <th className="px-4 py-3 font-medium">Роль</th>
+                  <th className="px-4 py-3 font-medium">Магазин</th>
                   <th className="px-4 py-3 font-medium">Дата создания</th>
+
                   {isAdmin && <th className="px-4 py-3 text-right">Действия</th>}
                 </tr>
               </thead>
@@ -55,6 +66,9 @@ const UsersPage = () => {
                     <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
                     <td className="px-4 py-3">
                       <RoleBadge role={u.role} />
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {getStoreName(u.store_id)}
                     </td>
                     <td className="px-4 py-3 text-slate-500">{formatDateTime(u.created_at)}</td>
 
@@ -85,13 +99,18 @@ const UsersPage = () => {
                     <div>
                       <div className="font-medium text-slate-800">{u.name}</div>
                       <div className="text-xs text-slate-500 font-mono">{u.login}</div>
+                      
                     </div>
                   </div>
 
                   <RoleBadge role={u.role} />
                 </div>
 
-                <div className="text-xs text-slate-500">Создан: {formatDateTime(u.created_at)}</div>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>Магазин: {getStoreName(u.store_id)}</span>
+                  <span>•</span>
+                  <span>Создан: {formatDateTime(u.created_at)}</span>
+                </div>
 
                 {isAdmin && u.id !== me?.id && (
                   <div className="flex justify-end pt-2">
