@@ -30,7 +30,8 @@ export const StoreCustomersPage = () => {
   const [selectedDay, setSelectedDay] = useState<number | undefined>(new Date().getDate())
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear())
-   const { me } = useAuth()
+   const { me,isAdmin } = useAuth()
+   
   const { data, isLoading, isError } = useGetStoreCustomersQuery(Number(storeId))
   const { data: expenses = [], isLoading: isExpensesLoading, refetch } = useGetExpensesQuery({
     store_id: Number(storeId),
@@ -242,11 +243,11 @@ export const StoreCustomersPage = () => {
               <h3 className="text-lg font-semibold text-slate-800">Клиенты магазина</h3>
               <button 
                 onClick={() => setShowCreateCustomerModal(true)}
-                disabled={me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${me?.store_id === Number(storeId) 
+                disabled={!isAdmin && me?.store_id !== Number(storeId)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
                   ? 'bg-blue-600 text-white hover:bg-blue-700' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                title={me?.store_id !== Number(storeId) ? 'Вы можете добавлять клиентов только в свой магазин' : ''}
+                title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете добавлять клиентов только в свой магазин' : ''}
               >
                 <Plus size={16} />
                 Добавить клиента
@@ -325,11 +326,11 @@ export const StoreCustomersPage = () => {
               <h3 className="text-lg font-semibold text-slate-800">Расходы магазина</h3>
               <button 
                 onClick={() => setShowExpenseForm(!showExpenseForm)}
-                disabled={me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${me?.store_id === Number(storeId) 
+                disabled={!isAdmin && me?.store_id !== Number(storeId)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
                   ? 'bg-blue-600 text-white hover:bg-blue-700' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                title={me?.store_id !== Number(storeId) ? 'Вы можете добавлять расходы только в свой магазин' : ''}
+                title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете добавлять расходы только в свой магазин' : ''}
               >
                 <Plus size={16} />
                 Добавить расход
@@ -675,11 +676,11 @@ export const StoreCustomersPage = () => {
                 </button>
                 <button 
                   onClick={() => setShowSalesForm(!showSalesForm)}
-                  disabled={me?.store_id !== Number(storeId)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${me?.store_id === Number(storeId) 
+                  disabled={!isAdmin && me?.store_id !== Number(storeId)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
                     ? 'bg-blue-600 text-white hover:bg-blue-700' 
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                  title={me?.store_id !== Number(storeId) ? 'Вы можете создавать продажи только в свой магазин' : ''}
+                  title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете создавать продажи только в свой магазин' : ''}
                 >
                   <Plus size={16} />
                   Создать продажу
