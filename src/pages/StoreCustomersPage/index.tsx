@@ -2,12 +2,13 @@ import { useParams, useNavigate } from 'react-router'
 import { useGetStoreCustomersQuery } from '@/features/stores/api/stores.api'
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { paths } from '@/app/routers/constants'
-import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil } from 'lucide-react'
+import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useGetExpensesQuery, useCreateExpenseMutation } from '@/features/expenses/api/expenses.api'
-import { useGetSalesQuery } from '@/features/sales/api/sales.api'
+import { useGetSalesQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery } from '@/features/sales/api/sales.api'
 import { useGetStoreFinancialSummaryQuery } from '@/features/stores/api/stores.api'
 import { toast } from 'sonner'
+import { skipToken } from '@reduxjs/toolkit/query'
 import { useCreateSaleMutation } from '@/features/sales/api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { Trash2, PackagePlus } from 'lucide-react'
@@ -16,7 +17,7 @@ import CustomerFormModal from '@/widgets/modals/CustomerFormModal'
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'customers' | 'expenses' | 'sales' | 'statistics'>('customers')
+  const [activeTab, setActiveTab] = useState<'customers' | 'expenses' | 'sales' | 'statistics' | 'retailDebts'>('customers')
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [showSalesForm, setShowSalesForm] = useState(false)
   const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null)
@@ -24,6 +25,7 @@ export const StoreCustomersPage = () => {
 
   const [amount, setAmount] = useState('')
   const [comment, setComment] = useState('')
+  const [selectedDay, setSelectedDay] = useState<number | undefined>(new Date().getDate())
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear())
   
@@ -33,11 +35,26 @@ export const StoreCustomersPage = () => {
     month: selectedMonth,
     year: selectedYear,
   })
-  const { data: storeSales = [], isLoading: isSalesLoading } = useGetSalesQuery({
+  const salesQueryParams = {
     store_id: Number(storeId),
+    day: selectedDay,
     month: selectedMonth,
     year: selectedYear,
-  })
+  };
+  
+  const { data: storeSales = [], isLoading: isSalesLoading } = useGetSalesQuery(salesQueryParams)
+  const { data: retailDebtors = [], isLoading: isRetailDebtorsLoading } = useGetRetailDebtorsQuery()
+  const [createRetailDebtorPayment, { isLoading: isCreatingRetailPayment }] = useCreateRetailDebtorPaymentMutation()
+  
+  // State for payment modal
+  const [selectedDebtorId, setSelectedDebtorId] = useState<number | null>(null)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentDescription, setPaymentDescription] = useState('')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  
+  // State for debtor details
+  const [selectedDebtorDetailsId, setSelectedDebtorDetailsId] = useState<number | null>(null)
+  const { data: debtorOperations = [], isLoading: isDebtorOperationsLoading } = useGetRetailDebtorOperationsQuery(selectedDebtorDetailsId || skipToken)
   const [createExpense, { isLoading: isCreating }] = useCreateExpenseMutation()
   
   // Fetch financial summary data
@@ -47,7 +64,7 @@ export const StoreCustomersPage = () => {
     year: selectedYear,
   })
 
-  if (isLoading || isExpensesLoading || isSalesLoading || isFinancialSummaryLoading) {
+  if (isLoading || isExpensesLoading || isSalesLoading || isFinancialSummaryLoading || isRetailDebtorsLoading) {
     return <div className="flex justify-center py-20 text-slate-500">Загрузка данных…</div>
   }
 
@@ -82,6 +99,36 @@ export const StoreCustomersPage = () => {
       refetch(); // Refresh expenses list
     } catch (error) {
       toast.error('Ошибка при создании расхода');
+      console.error(error);
+    }
+  };
+
+  const handleRecordPayment = async (debtorId: number) => {
+    if (!paymentAmount.trim()) {
+      toast.error('Пожалуйста, введите сумму оплаты');
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error('Пожалуйста, введите корректную сумму оплаты');
+      return;
+    }
+
+    try {
+      await createRetailDebtorPayment({
+        id: debtorId,
+        amount: amount,
+        description: paymentDescription || undefined,
+      }).unwrap();
+
+      toast.success('Оплата успешно записана');
+      setShowPaymentModal(false);
+      setPaymentAmount('');
+      setPaymentDescription('');
+      setSelectedDebtorId(null);
+    } catch (error) {
+      toast.error('Ошибка при записи оплаты');
       console.error(error);
     }
   };
@@ -124,6 +171,13 @@ export const StoreCustomersPage = () => {
         >
           <BarChart3 size={18} />
           Статистика
+        </button>
+        <button
+          onClick={() => setActiveTab('retailDebts')}
+          className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${activeTab === 'retailDebts' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          <User size={18} />
+          Долги в розницу
         </button>
       </div>
 
@@ -175,8 +229,8 @@ export const StoreCustomersPage = () => {
                     
                     <div className="flex items-start gap-2">
                       <div className="text-right">
-                        <div className={`text-sm font-medium ${customer.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {customer.balance.toLocaleString()}
+                        <div className={`text-sm font-medium ${Number(customer.balance) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {Number(customer.balance).toLocaleString()}
                         </div>
                         <div className="text-xs text-slate-500">Баланс</div>
                       </div>
@@ -271,10 +325,7 @@ export const StoreCustomersPage = () => {
                   <span className="text-xl font-bold">
                     {expenses
                       .reduce((total, expense) => {
-                        const amount = typeof expense.amount === 'number' 
-                          ? expense.amount 
-                          : parseFloat(String(expense.amount)) || 0;
-                        return total + amount;
+                        return total + Number(expense.amount || 0);
                       }, 0)
                       .toFixed(2)}
                   </span>
@@ -356,7 +407,7 @@ export const StoreCustomersPage = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
-                    {expenses
+                    {[...expenses]
                       .sort((a, b) => new Date(b.expense_date).getTime() - new Date(a.expense_date).getTime())
                       .slice(0, 10)
                       .map((expense) => (
@@ -369,7 +420,7 @@ export const StoreCustomersPage = () => {
                             })}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
-                            {(typeof expense.amount === 'number' ? expense.amount.toFixed(2) : parseFloat(String(expense.amount)).toFixed(2))}
+                            {Number(expense.amount).toFixed(2)}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-500">
                             {expense.comment || '—'}
@@ -438,7 +489,7 @@ export const StoreCustomersPage = () => {
                   <div>
                     <p className="text-sm text-blue-600">Общая сумма продаж</p>
                     <p className="text-2xl font-bold text-slate-800">
-                      {financialSummary ? financialSummary.total_sales.toFixed(2) : '0.00'}
+                      {financialSummary ? Number(financialSummary.total_sales).toFixed(2) : '0.00'}
                     </p>
                   </div>
                 </div>
@@ -452,7 +503,7 @@ export const StoreCustomersPage = () => {
                   <div>
                     <p className="text-sm text-green-600">Общие расходы</p>
                     <p className="text-2xl font-bold text-slate-800">
-                      {financialSummary ? financialSummary.total_expenses.toFixed(2) : '0.00'}
+                      {financialSummary ? Number(financialSummary.total_expenses).toFixed(2) : '0.00'}
                     </p>
                   </div>
                 </div>
@@ -466,7 +517,7 @@ export const StoreCustomersPage = () => {
                   <div>
                     <p className="text-sm text-purple-600">Общая сумма долгов</p>
                     <p className="text-2xl font-bold text-slate-800">
-                      {financialSummary ? financialSummary.total_debts.toFixed(2) : '0.00'}
+                      {financialSummary ? Number(financialSummary.total_debts).toFixed(2) : '0.00'}
                     </p>
                   </div>
                 </div>
@@ -474,11 +525,86 @@ export const StoreCustomersPage = () => {
             </div>
 
           </div>
+        ) : activeTab === 'retailDebts' ? (
+          /* Retail Debts Tab Content */
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Долги в розницу</h3>
+            
+            {retailDebtors.length === 0 ? (
+              <div className="text-center py-10 text-slate-500">Нет розничных должников</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Имя клиента</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Телефон</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Общая задолженность</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Оплачено</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Остаток</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Дата создания</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {[...retailDebtors]
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                      .map((debtor) => (
+                        <tr key={debtor.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => {
+                          setSelectedDebtorDetailsId(debtor.id);
+                        }}>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                            {debtor.customer_name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                            {debtor.phone}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                            {Number(debtor.total_debt).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                            {Number(debtor.total_paid).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                            <span className={`px-2 py-1 rounded-full text-xs ${Number(debtor.remaining_balance) > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                              {Number(debtor.remaining_balance).toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                            {new Date(debtor.created_at).toLocaleDateString('ru-RU', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent row click event
+                                setSelectedDebtorId(debtor.id);
+                                setShowPaymentModal(true);
+                              }}
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                              disabled={isCreatingRetailPayment}
+                            >
+                              <Wallet size={16} />
+                              Оплатить
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         ) : (
           /* Sales Tab Content */
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-slate-800">Продажи магазина</h3>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">Продажи магазина</h3>
+              </div>
               <button 
                 onClick={() => setShowSalesForm(!showSalesForm)}
                 className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
@@ -491,6 +617,21 @@ export const StoreCustomersPage = () => {
             {/* Filters */}
             <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
               <div className="flex flex-wrap gap-4 items-center">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">День</label>
+                  <select
+                    value={selectedDay ?? ''}
+                    onChange={(e) => setSelectedDay(e.target.value ? parseInt(e.target.value) : undefined)}
+                    className="border border-slate-300 rounded-lg px-3 py-2"
+                  >
+                    <option value="">Все дни</option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Месяц</label>
                   <select
@@ -521,6 +662,7 @@ export const StoreCustomersPage = () => {
                 </div>
                 <button 
                   onClick={() => {
+                    setSelectedDay(undefined);
                     setSelectedMonth(undefined);
                     setSelectedYear(undefined);
                   }}
@@ -558,26 +700,46 @@ export const StoreCustomersPage = () => {
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
                 <div className="text-green-800">
-                  <span className="font-semibold">Итого продаж (оплачено - в долг): </span>
+                  <span className="font-semibold">Итого продаж: </span>
                   <span className="text-xl font-bold">
-                    {(
-                      storeSales
-                        .filter(sale => sale.payment_status === 'PAID')
-                        .reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0) -
-                      storeSales
-                        .filter(sale => sale.payment_status === 'DEBT')
-                        .reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0)
-                    ).toFixed(2)}
+                    {storeSales
+                      .filter(transaction => transaction.type === 'SALE')
+                      .reduce((total, transaction) => total + Number(transaction.amount || 0), 0)
+                      .toFixed(2)}
                   </span>
+                  <div className="text-sm mt-1">
+                    <span className="text-green-600">Оплачено: {
+                      storeSales
+                        .filter(t => t.type === 'SALE' && t.payment_status === 'PAID')
+                        .reduce((total, t) => total + Number(t.amount || 0), 0)
+                        .toFixed(2)
+                    }</span>
+                    <span className="mx-2 text-slate-400">|</span>
+                    <span className="text-red-600">В долг: {
+                      storeSales
+                        .filter(t => t.type === 'SALE' && t.payment_status === 'DEBT')
+                        .reduce((total, t) => total + Number(t.amount || 0), 0)
+                        .toFixed(2)
+                    }</span>
+                  </div>
                 </div>
                 <div className="text-sm text-green-600">
-                  {storeSales.length} операций
+                  {storeSales.filter(t => t.type === 'SALE').length} продаж
+                  <div className="text-xs text-slate-500 mt-1">
+                    Оплачено: {storeSales.filter(t => t.type === 'SALE' && t.payment_status === 'PAID').length} | 
+                    В долг: {storeSales.filter(t => t.type === 'SALE' && t.payment_status === 'DEBT').length} | 
+                    Оплат: {storeSales.filter(t => t.type === 'PAYMENT').length}
+                  </div>
                 </div>
               </div>
             </div>
             
             {storeSales.length === 0 ? (
-              <div className="text-center py-10 text-slate-500">У этого магазина нет продаж</div>
+              <div className="text-center py-10 text-slate-500">
+                {selectedDay || selectedMonth || selectedYear
+                  ? 'Нет продаж, соответствующих выбранным фильтрам'
+                  : 'У этого магазина нет продаж'}
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
@@ -585,37 +747,54 @@ export const StoreCustomersPage = () => {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Дата</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Клиент</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Тип</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Сумма</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Статус оплаты</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Статус</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Склад</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Создал</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {[...storeSales]
+                      .filter(transaction => transaction.type === 'SALE' || transaction.type === 'PAYMENT')
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                      .slice(0, 10)
-                      .map((sale) => (
-                        <tr key={sale.id} className="hover:bg-slate-50">
+                      .slice(0, 15)
+                      .map((transaction) => (
+                        <tr key={transaction.transaction_id} className="hover:bg-slate-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
-                            {new Date(sale.created_at).toLocaleDateString('ru-RU', {
+                            {new Date(transaction.created_at).toLocaleDateString('ru-RU', {
                               day: '2-digit',
                               month: '2-digit',
                               year: 'numeric'
                             })}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900">
-                            {sale.customer_name || '—'}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
-                            {(Number(sale.total_amount) || 0).toFixed(2)}
+                            {transaction.customer_name || '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs ${sale.payment_status === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                              {sale.payment_status === 'DEBT' ? 'В долг' : 'Оплачено'}
+                            <span className={`px-2 py-1 rounded-full text-xs ${transaction.type === 'SALE' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
+                              {transaction.type === 'SALE' ? 'Продажа' : 'Оплата'}
                             </span>
                           </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                            {Number(transaction.amount || 0).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            {transaction.type === 'SALE' ? (
+                              <span className={`px-2 py-1 rounded-full text-xs ${transaction.payment_status === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                {transaction.payment_status === 'DEBT' ? 'В долг' : 'Оплачено'}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                Оплачено
+                              </span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-sm text-slate-500">
-                            {sale.created_by_name || '—'}
+                            {transaction.warehouse_name || (transaction.warehouse_id ? `Склад #${transaction.warehouse_id}` : '—')}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-500">
+                            {transaction.created_by_name || '—'}
                           </td>
                         </tr>
                       ))}
@@ -627,6 +806,156 @@ export const StoreCustomersPage = () => {
         )}
       </div>
       
+      {/* Payment Modal */}
+      {showPaymentModal && selectedDebtorId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800">Оплата по долгам</h3>
+              <button 
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setPaymentAmount('');
+                  setPaymentDescription('');
+                  setSelectedDebtorId(null);
+                }}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Сумма оплаты *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  placeholder="0.00"
+                  min="0"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Описание
+                </label>
+                <input
+                  type="text"
+                  value={paymentDescription}
+                  onChange={(e) => setPaymentDescription(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  placeholder="Введите описание оплаты"
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => handleRecordPayment(selectedDebtorId)}
+                  disabled={isCreatingRetailPayment}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-slate-400"
+                >
+                  {isCreatingRetailPayment ? 'Обработка...' : 'Записать оплату'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setPaymentAmount('');
+                    setPaymentDescription('');
+                    setSelectedDebtorId(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Debtor Details Modal */}
+      {selectedDebtorDetailsId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800">Детали должника</h3>
+              <button 
+                onClick={() => {
+                  setSelectedDebtorDetailsId(null);
+                }}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {isDebtorOperationsLoading ? (
+              <div className="flex justify-center py-10 text-slate-500">Загрузка операций...</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Тип</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Сумма</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Описание</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Дата</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">ID продажи</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                      {debtorOperations.map((operation) => (
+                        <tr key={operation.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                            <span className={`px-2 py-1 rounded-full text-xs ${operation.type === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                              {operation.type === 'DEBT' ? 'Долг' : 'Оплата'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                            {Number(operation.amount).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                            {operation.description || '—'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                            {new Date(operation.created_at).toLocaleDateString('ru-RU', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric'
+                            })}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                            {operation.sale_id ? `#${operation.sale_id}` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {debtorOperations.length === 0 && (
+                  <div className="text-center py-10 text-slate-500">Нет операций для этого должника</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Customer Edit Modal */}
       {editingCustomerId && (
         <CustomerFormModal
@@ -681,6 +1010,8 @@ interface StoreSalesFormProps {
 const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
   const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
   const [items, setItems] = useState<StoreSaleItem[]>([emptyItem])
+  const [customerName, setCustomerName] = useState('')
+  const [phone, setPhone] = useState('')
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const { data: products = [] } = useGetProductsQuery()
 
@@ -735,9 +1066,23 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
     if (isInvalid) return
 
     try {
+      // Validate customer fields for DEBT payments
+      if (payment_status === 'DEBT') {
+        if (!customerName.trim()) {
+          toast.error('Пожалуйста, введите имя клиента для продажи в долг');
+          return;
+        }
+        if (!phone.trim()) {
+          toast.error('Пожалуйста, введите телефон клиента для продажи в долг');
+          return;
+        }
+      }
+
       await createSale({
         store_id: initialStoreId,
         payment_status,
+        customer_name: payment_status === 'DEBT' ? customerName : undefined,
+        phone: payment_status === 'DEBT' ? phone : undefined,
         items: items.map((item) => {
           // Find the product to get its product_code
           const product = products.find(p => p.id === item.product_id);
@@ -753,6 +1098,8 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       toast.success('Продажа успешно создана')
       // Reset form
       setItems([emptyItem])
+      setCustomerName('')
+      setPhone('')
       
       // Close the form if onClose is provided
       if (onClose) {
@@ -839,6 +1186,36 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
           <option value="PAID">Оплачено</option>
         </select>
       </div>
+
+      {/* Customer fields for DEBT payments */}
+      {payment_status === 'DEBT' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Имя клиента *
+            </label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              placeholder="Введите имя клиента"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Телефон клиента *
+            </label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+              placeholder="Введите телефон клиента"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <div className="grid grid-cols-12 gap-4 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">

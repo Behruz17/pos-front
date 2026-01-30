@@ -19,10 +19,15 @@ export interface TSale {
   created_at: string
   created_by_name: string
   total_amount: number
+  store_name?: string
+  warehouse_id?: number
+  warehouse_name?: string
 }
 
 export interface TCreateSale {
   customer_id?: number
+  customer_name?: string
+  phone?: string
   store_id: number
   payment_status?: 'PAID' | 'DEBT'
   items: Omit<TSaleItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
@@ -56,4 +61,33 @@ export interface TCreateReturn {
   sale_id?: number
   store_id?: number
   items: Omit<TReturnItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
+}
+
+export interface TRetailDebtor {
+  id: number
+  customer_name: string
+  phone: string
+  created_at: string
+  total_debt: number
+  total_paid: number
+  remaining_balance: number
+}
+
+export interface TRetailDebtorPayment {
+  id: number
+  retail_debtor_id: number
+  amount: number
+  type: string
+  description?: string
+  message: string
+}
+
+export interface TRetailDebtorOperation {
+  id: number
+  type: 'DEBT' | 'PAYMENT'
+  amount: number
+  description: string | null
+  created_at: string
+  sale_id: number | null
+  sale_amount: number | null
 }

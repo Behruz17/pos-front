@@ -7,6 +7,8 @@ import { formatDateTime } from '@/shared/formatDateTime'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { useGetSalesQuery } from '@/features/sales/api/sales.api'
 import { useGetReturnsQuery } from '@/features/returns/api/returns.api'
+import type { TSale } from '@/features/sales/model/sales.types'
+import type { TReturn } from '@/features/returns/model/returns.types'
 import { CreateSaleModal } from '@/widgets/modals/CreateSaleModal'
 import ReturnsViewModal from '@/widgets/modals/ReturnsViewModal'
 import { paths } from '@/app/routers/constants'
@@ -34,7 +36,7 @@ const TransactionPage = () => {
       (i) =>
         i.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
         i.created_by_name?.toLowerCase().includes(search.toLowerCase())
-    )
+    ) as (TSale | TReturn)[]
   }, [sales, returns, search, tab])
 
   const handleRowClick = (id: number) => {
@@ -129,12 +131,31 @@ const TransactionPage = () => {
                 <Eye size={18} className="text-slate-400" />
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                  {i.created_by_name}
-                </span>
-
-                <span className="font-semibold text-slate-800">{Number(i.total_amount).toLocaleString()} с</span>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {tab === 'sales' && 'store_name' in i && (
+                  <>
+                    <div>
+                      <span className="text-xs text-slate-500">Магазин</span>
+                      <div className="font-medium">{i.store_name || `Магазин #${i.store_id}`}</div>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-500">Склад</span>
+                      <div className="font-medium">{i.warehouse_name || (i.warehouse_id ? `Склад #${i.warehouse_id}` : '—')}</div>
+                    </div>
+                  </>
+                )}
+                <div className="col-span-2">
+                  <span className="text-xs text-slate-500">Создал</span>
+                  <div>
+                    <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
+                      {i.created_by_name}
+                    </span>
+                  </div>
+                </div>
+                <div className="col-span-2 text-right">
+                  <span className="text-xs text-slate-500">Сумма</span>
+                  <div className="font-semibold text-slate-800">{Number(i.total_amount).toLocaleString()} с</div>
+                </div>
               </div>
             </div>
           ))}
@@ -149,6 +170,8 @@ const TransactionPage = () => {
                 <tr className="text-left text-slate-600">
                   <th className="px-4 py-3">№</th>
                   <th className="px-4 py-3">Клиент</th>
+                  <th className="px-4 py-3">Магазин</th>
+                  <th className="px-4 py-3">Склад</th>
                   <th className="px-4 py-3">Создал</th>
                   <th className="px-4 py-3">Дата</th>
                   <th className="px-4 py-3 text-right">Сумма</th>
@@ -171,6 +194,18 @@ const TransactionPage = () => {
                         {i.customer_name || 'Демо-клиент'}
                       </div>
                     </td>
+
+                    {tab === 'sales' && 'store_name' in i && (
+                      <>
+                        <td className="px-4 py-3 text-slate-600">
+                          {i.store_name || `Магазин #${i.store_id}`}
+                        </td>
+
+                        <td className="px-4 py-3 text-slate-600">
+                          {i.warehouse_name || (i.warehouse_id ? `Склад #${i.warehouse_id}` : '—')}
+                        </td>
+                      </>
+                    )}
 
                     <td className="px-4 py-3">
                       <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">

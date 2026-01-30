@@ -5,6 +5,7 @@ import { useCreateSaleMutation } from '@/features/sales/api/sales.api'
 import { useGetStoresQuery } from '@/features/stores/api/stores.api'
 import { useMemo, useState } from 'react'
 import { Plus, ShoppingCart, Trash2, AlertTriangle } from 'lucide-react'
+import { toast } from 'sonner'
 
 type TSaleItemForm = {
   product_id: string
@@ -34,6 +35,7 @@ export const CreateSaleModal = ({
 
   const [customerId, setCustomerId] = useState('')
   const [storeId, setStoreId] = useState(stores.length > 0 ? String(stores[0].id) : '1')
+  const [paymentStatus, setPaymentStatus] = useState<'PAID' | 'DEBT'>('PAID')
   const [items, setItems] = useState<TSaleItemForm[]>([emptyItem])
   const [showTotalStock, setShowTotalStock] = useState('')
 
@@ -59,15 +61,38 @@ export const CreateSaleModal = ({
   const onSubmit = async () => {
     if (disabled) return
 
-    await createSale({
+    // Prepare the sale data
+    const saleData = {
       customer_id: customerId ? Number(customerId) : undefined,
       store_id: Number(storeId),
-      items: items.map((i) => ({
-        product_id: Number(i.product_id),
-        quantity: Number(i.quantity),
-        unit_price: Number(i.last_unit_price),
-      })),
-    }).unwrap()
+      payment_status: paymentStatus,
+      items: items.map((i) => {
+        const product = products.find(p => String(p.id) === i.product_id);
+        // Ensure we have a valid product
+        if (!product) {
+          console.error('Product not found:', i.product_id);
+          throw new Error(`Product with ID ${i.product_id} not found`);
+        }
+        return {
+          product_id: Number(i.product_id),
+          product_code: product.product_code || '',
+          quantity: Number(i.quantity),
+          unit_price: Number(i.last_unit_price),
+        }
+      }),
+    };
+    
+    // Show the request payload in an alert for debugging
+    alert('Create Sale Request: ' + JSON.stringify(saleData, null, 2));
+
+    try {
+      await createSale(saleData).unwrap()
+      toast.success('Продажа успешно создана')
+    } catch (error) {
+      console.error('Create sale error:', error);
+      alert('Ошибка при создании продажи: ' + (error as any)?.data?.message || (error as any)?.message || 'Неизвестная ошибка')
+      throw error;
+    }
 
     setCustomerId('')
     setItems([emptyItem])
@@ -77,7 +102,7 @@ export const CreateSaleModal = ({
   return (
     <Modal open={open} onClose={onClose} title="Новая продажа">
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-600">Клиент</label>
             <select
@@ -108,6 +133,18 @@ export const CreateSaleModal = ({
               ))}
             </select>
           </div>
+          
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Статус оплаты</label>
+            <select
+              value={paymentStatus}
+              onChange={(e) => setPaymentStatus(e.target.value as 'PAID' | 'DEBT')}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="PAID">Оплачено</option>
+              <option value="DEBT">В долг</option>
+            </select>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -124,7 +161,7 @@ export const CreateSaleModal = ({
                   ${stockError ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'}
                 `}
               >
-                <div className="col-span-12 lg:col-span-4 space-y-1">
+                <div className="col-span-12 lg:col-span-3 space-y-1">
                   <label className="text-xs text-slate-500">Товар</label>
                   <select
                     value={item.product_id}
@@ -152,7 +189,7 @@ export const CreateSaleModal = ({
                   </select>
                 </div>
 
-                <div className="col-span-6 lg:col-span-3 space-y-1">
+                <div className="col-span-6 lg:col-span-2 space-y-1">
                   <label className="text-xs text-slate-500">Количество</label>
                   <input
                     placeholder={`Доступно: ${showTotalStock}`}
@@ -170,7 +207,7 @@ export const CreateSaleModal = ({
                   />
                 </div>
 
-                <div className="col-span-6 lg:col-span-3 space-y-1">
+                <div className="col-span-6 lg:col-span-2 space-y-1">
                   <label className="text-xs text-slate-500">Цена за единицу</label>
                   <input
                     placeholder="Цена"
@@ -183,7 +220,7 @@ export const CreateSaleModal = ({
                     className="w-full rounded-lg border px-3 py-2 text-sm"
                   />
                 </div>
-                <div className="col-span-12 lg:col-span-4 grid grid-cols-2 gap-3 bg-slate-100 rounded-lg p-3">
+                <div className="col-span-12 lg:col-span-3 grid grid-cols-2 gap-3 bg-slate-100 rounded-lg p-3">
                   <div className="space-y-0.5">
                     <div className="text-xs text-slate-500">Закупочная цена</div>
                     <div className="font-semibold text-slate-800">{product?.purchase_cost || '—'} с</div>
