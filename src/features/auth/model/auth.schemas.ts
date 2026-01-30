@@ -6,6 +6,7 @@ export const getMeDtoSchema = z.object({
 
   name: z.string(),
   role: z.enum(['ADMIN', 'USER']),
+  store_id: z.number().nullable().optional(),
 })
 export const userSchema = getMeDtoSchema.extend({
   created_at: z.string(),

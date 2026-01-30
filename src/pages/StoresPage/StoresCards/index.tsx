@@ -1,8 +1,5 @@
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
-import { 
-  useGetStoresQuery, 
-  useDeleteStoreMutation 
-} from '@/features/stores/api/stores.api'
+import { useGetStoresQuery, useDeleteStoreMutation } from '@/features/stores/api/stores.api'
 import { useState } from 'react'
 import { Package, Trash2, Pencil, Plus } from 'lucide-react'
 import DeleteModal from '@/widgets/modals/DeleteModal'
@@ -117,17 +114,18 @@ export const StoresCards = () => {
             <div className="mt-3 sm:mt-4 font-semibold text-sm sm:text-base text-slate-800">{store.name}</div>
 
             <div className="mt-1 text-xs text-slate-400">{store.warehouse_name}</div>
-            
-            {store.city && (
-              <div className="mt-1 text-xs text-slate-500">{store.city}</div>
-            )}
+
+            {store.city && <div className="mt-1 text-xs text-slate-500">{store.city}</div>}
 
             {/* Action Icons */}
-            <div className="absolute top-2 right-2 flex gap-1">
+            {
+              isAdmin && <div className="absolute top-2 right-2 flex gap-1">
               <button
                 onClick={(e) => {
-                  e.stopPropagation()
-                  openEditModal(store)
+                  if (isAdmin) {
+                    e.stopPropagation()
+                    openEditModal(store)
+                  }
                 }}
                 className="
                   p-1.5 rounded-lg
@@ -142,8 +140,10 @@ export const StoresCards = () => {
               </button>
               <button
                 onClick={(e) => {
-                  e.stopPropagation()
-                  setDeleteId(store.id)
+                  if (isAdmin) {
+                    e.stopPropagation()
+                    setDeleteId(store.id)
+                  }
                 }}
                 className="
                   p-1.5 rounded-lg
@@ -157,10 +157,12 @@ export const StoresCards = () => {
                 <Trash2 size={14} />
               </button>
             </div>
+            }
+           
           </button>
         ))}
       </div>
-      
+
       {modalOpen && (
         <Modal
           title={editingStore ? 'Редактировать магазин' : 'Добавить магазин'}
@@ -179,14 +181,8 @@ export const StoresCards = () => {
           />
         </Modal>
       )}
-      
-      {deleteId && (
-        <DeleteModal 
-          onClose={() => setDeleteId(null)} 
-          isLoading={deleteLoading}
-          onDelete={handleDelete}
-        />
-      )}
+
+      {deleteId && <DeleteModal onClose={() => setDeleteId(null)} isLoading={deleteLoading} onDelete={handleDelete} />}
     </div>
   )
 }

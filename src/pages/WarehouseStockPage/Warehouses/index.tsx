@@ -1,5 +1,9 @@
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
-import { useDeleteWarehouseMutation, useGetWarehousesQuery, usePutWarehouseMutation } from '@/features/warehouses/api/warehouses.api'
+import {
+  useDeleteWarehouseMutation,
+  useGetWarehousesQuery,
+  usePutWarehouseMutation,
+} from '@/features/warehouses/api/warehouses.api'
 import CreateWarehouseModal from '@/widgets/modals/CreateWarehouse'
 import DeleteModal from '@/widgets/modals/DeleteModal'
 import EditWarehouseModal from '@/widgets/modals/EditWarehouseModal'
@@ -108,8 +112,10 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
             <div className="absolute top-2 right-2 flex gap-1">
               <button
                 onClick={(e) => {
-                  e.stopPropagation()
-                  setEditWarehouse(w)
+                  if (isAdmin) {
+                    e.stopPropagation()
+                    setEditWarehouse(w)
+                  }
                 }}
                 className="
                   p-1.5 rounded-lg
@@ -124,8 +130,10 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
               </button>
               <button
                 onClick={(e) => {
-                  e.stopPropagation()
-                  setDeleteId(w.id)
+                  if (isAdmin) {
+                    e.stopPropagation()
+                    setDeleteId(w.id)
+                  }
                 }}
                 className="
                   p-1.5 rounded-lg
@@ -143,19 +151,9 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
         ))}
       </div>
       {modalOpen && <CreateWarehouseModal onClose={() => setModalOpen(false)} />}
-      {deleteId && (
-        <DeleteModal 
-          onClose={() => setDeleteId(null)} 
-          isLoading={deleteLoading}
-          onDelete={handleDelete}
-        />
-      )}
+      {deleteId && <DeleteModal onClose={() => setDeleteId(null)} isLoading={deleteLoading} onDelete={handleDelete} />}
       {editWarehouse && (
-        <EditWarehouseModal 
-          warehouse={editWarehouse}
-          onClose={() => setEditWarehouse(null)}
-          onUpdate={handleUpdate}
-        />
+        <EditWarehouseModal warehouse={editWarehouse} onClose={() => setEditWarehouse(null)} onUpdate={handleUpdate} />
       )}
     </div>
   )
