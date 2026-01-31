@@ -94,3 +94,7 @@ export interface TRetailDebtorOperation {
   sale_id: number | null
   sale_amount: number | null
 }
+
+export interface TRetailDebtorDetail extends TRetailDebtor {
+  operations: TRetailDebtorOperation[]
+}

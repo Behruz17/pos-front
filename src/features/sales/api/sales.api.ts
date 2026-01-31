@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation } from '../model/sales.types'
+import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation, TRetailDebtorDetail } from '../model/sales.types'
 
 const salesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -58,7 +58,14 @@ const salesApi = baseApi.injectEndpoints({
       }),
       providesTags: (_result, _error, id) => [{ type: 'RetailDebtors', id }],
     }),
+    getRetailDebtorDetail: build.query<TRetailDebtorDetail, number>({
+      query: (id) => ({
+        url: `/retail-debtors/${id}`,
+        method: 'GET',
+      }),
+      providesTags: (_result, _error, id) => [{ type: 'RetailDebtors', id }],
+    }),
   }),
 })
 
-export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery } = salesApi
+export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery, useGetRetailDebtorDetailQuery } = salesApi
