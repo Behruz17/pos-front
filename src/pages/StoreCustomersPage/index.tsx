@@ -1310,6 +1310,11 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       refs.current[rowIndex]?.quantityRef.current?.focus()
     }, 0)
   }
+  const totalSum = items.reduce(
+  (sum, item) => sum + item.quantity * item.unit_price,
+  0
+);
+
 
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
@@ -1365,135 +1370,176 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
           <div className="col-span-2">Действия</div>
         </div>
 
-        {items.map((item, i) => {
-          const filteredProducts = getFilteredProducts(item.product_name)
-          return (
-            <div key={i} className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative">
-              <div className="col-span-12 lg:col-span-3 relative">
-                <label className="text-xs text-gray-500 lg:hidden">Товар</label>
-                <input
-                  ref={(el) => {
-                    if (refs.current[i]) {
-                      refs.current[i].productInputRef.current = el;
-                    }
-                  }}
-                  type="text"
-                  value={item.product_name}
-                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0, product_code: '' })}
-                  onKeyDown={(e) => handleKeyDown(e, i, 'product')}
-                  placeholder="Поиск товара..."
-                  className="w-full border rounded-lg px-3 py-2.5"
-                />
+  
 
-                {/* Dropdown for product suggestions */}
-                {!item.product_id && item.product_name && filteredProducts.length > 0 && (
-                  <div
-                    ref={(el) => {
-                      if (refs.current[i]) {
-                        refs.current[i].productDropdownRef.current = el;
-                      }
-                    }}
-                    className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
-                  >
-                    {filteredProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        className="p-2 hover:bg-blue-100 cursor-pointer border-b last:border-b-0"
-                        onClick={() => handleProductSelect(product.id, product.name, product.product_code, i)}
-                      >
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-xs text-gray-500">Артикул: {product.product_code}</div>
-                      </div>
-                    ))}
+{items.map((item, i) => {
+  const filteredProducts = getFilteredProducts(item.product_name);
+
+  return (
+    <div
+      key={i}
+      className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative"
+    >
+      {/* Товар */}
+      <div className="col-span-12 lg:col-span-3 relative">
+        <label className="text-xs text-gray-500 lg:hidden">Товар</label>
+        <input
+          ref={(el) => {
+            if (refs.current[i]) {
+              refs.current[i].productInputRef.current = el;
+            }
+          }}
+          type="text"
+          value={item.product_name}
+          onChange={(e) =>
+            updateItem(i, {
+              product_name: e.target.value,
+              product_id: 0,
+              product_code: '',
+            })
+          }
+          onKeyDown={(e) => handleKeyDown(e, i, 'product')}
+          placeholder="Поиск товара..."
+          className="w-full border rounded-lg px-3 py-2.5"
+        />
+
+        {/* Dropdown */}
+        {!item.product_id &&
+          item.product_name &&
+          filteredProducts.length > 0 && (
+            <div
+              ref={(el) => {
+                if (refs.current[i]) {
+                  refs.current[i].productDropdownRef.current = el;
+                }
+              }}
+              className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
+            >
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="p-2 hover:bg-blue-100 cursor-pointer border-b last:border-b-0"
+                  onClick={() =>
+                    handleProductSelect(
+                      product.id,
+                      product.name,
+                      product.product_code,
+                      i
+                    )
+                  }
+                >
+                  <div className="font-medium">{product.name}</div>
+                  <div className="text-xs text-gray-500">
+                    Артикул: {product.product_code}
                   </div>
-                )}
-              </div>
-
-              <div className="col-span-6 lg:col-span-2">
-                <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
-                <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">
-                  {item.product_code || '—'}
                 </div>
-              </div>
-
-              <div className="col-span-6 lg:col-span-2">
-                <label className="text-xs text-gray-500 lg:hidden">Количество</label>
-                <input
-                  ref={(el) => {
-                    if (refs.current[i]) {
-                      refs.current[i].quantityRef.current = el;
-                    }
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={item.quantity === 0 ? '' : item.quantity}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/^0+/, '') || '0';
-                    const numValue = Number(value);
-                    if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { quantity: numValue });
-                    }
-                  }}
-                  onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
-                  className="w-full border rounded-lg px-3 py-2.5"
-                />
-              </div>
-
-              <div className="col-span-6 lg:col-span-2">
-                <label className="text-xs text-gray-500 lg:hidden">Цена за единицу</label>
-                <input
-                  ref={(el) => {
-                    if (refs.current[i]) {
-                      refs.current[i].priceRef.current = el;
-                    }
-                  }}
-                  type="text"
-                  inputMode="decimal"
-                  pattern="[0-9]*(.[0-9]+)?"
-                  value={item.unit_price === 0 ? '' : item.unit_price}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/^0+(?=\d)/, '');
-                    const numValue = Number(value);
-                    if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { unit_price: numValue });
-                    }
-                  }}
-                  onKeyDown={(e) => handleKeyDown(e, i, 'price')}
-                  onFocus={() => {
-                    // Add a new row when this input gets focus in the last row
-                    if (i === items.length - 1) {
-                      addItem();
-                    }
-                  }}
-                  className="w-full border rounded-lg px-3 py-2.5"
-                />
-              </div>
-
-              <div className="col-span-6 lg:col-span-1 flex items-end">
-                <div className="w-full text-center font-semibold py-2.5">
-                  {(item.quantity * item.unit_price).toLocaleString()}
-                </div>
-              </div>
-
-              <div className="col-span-12 lg:col-span-2 flex items-end">
-                {items.length > 1 && (
-                  <button
-                    ref={(el) => {
-                      if (refs.current[i]) {
-                        refs.current[i].removeButtonRef.current = el;
-                      }
-                    }}
-                    onClick={() => removeItem(i)}
-                    className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
+              ))}
             </div>
-          )
-        })}
+          )}
+      </div>
+
+      {/* Артикул */}
+      <div className="col-span-6 lg:col-span-2">
+        <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
+        <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">
+          {item.product_code || '—'}
+        </div>
+      </div>
+
+      {/* Количество */}
+      <div className="col-span-6 lg:col-span-2">
+        <label className="text-xs text-gray-500 lg:hidden">Количество</label>
+        <input
+          ref={(el) => {
+            if (refs.current[i]) {
+              refs.current[i].quantityRef.current = el;
+            }
+          }}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={item.quantity === 0 ? '' : item.quantity}
+          onChange={(e) => {
+            const value = e.target.value.replace(/^0+/, '') || '0';
+            const numValue = Number(value);
+            if (!isNaN(numValue) && numValue >= 0) {
+              updateItem(i, { quantity: numValue });
+            }
+          }}
+          onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
+          className="w-full border rounded-lg px-3 py-2.5"
+        />
+      </div>
+
+      {/* Цена */}
+      <div className="col-span-6 lg:col-span-2">
+        <label className="text-xs text-gray-500 lg:hidden">
+          Цена за единицу
+        </label>
+        <input
+          ref={(el) => {
+            if (refs.current[i]) {
+              refs.current[i].priceRef.current = el;
+            }
+          }}
+          type="text"
+          inputMode="decimal"
+          pattern="[0-9]*(.[0-9]+)?"
+          value={item.unit_price === 0 ? '' : item.unit_price}
+          onChange={(e) => {
+            const value = e.target.value.replace(/^0+(?=\d)/, '');
+            const numValue = Number(value);
+            if (!isNaN(numValue) && numValue >= 0) {
+              updateItem(i, { unit_price: numValue });
+            }
+          }}
+          onKeyDown={(e) => handleKeyDown(e, i, 'price')}
+          onFocus={() => {
+            if (i === items.length - 1) {
+              addItem();
+            }
+          }}
+          className="w-full border rounded-lg px-3 py-2.5"
+        />
+      </div>
+
+      {/* Сумма строки */}
+      <div className="col-span-6 lg:col-span-1 flex items-end">
+        <div className="w-full text-center font-semibold py-2.5">
+          {(item.quantity * item.unit_price).toLocaleString()}
+        </div>
+      </div>
+
+      {/* Удалить */}
+      <div className="col-span-12 lg:col-span-2 flex items-end">
+        {items.length > 1 && (
+          <button
+            ref={(el) => {
+              if (refs.current[i]) {
+                refs.current[i].removeButtonRef.current = el;
+              }
+            }}
+            onClick={() => removeItem(i)}
+            className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+})}
+
+{/* ИТОГО */}
+<div className="mt-4 flex justify-start">
+  <div className="w-full lg:w-1/3 bg-gray-100 border rounded-xl p-4">
+    <div className="flex justify-between text-lg font-semibold">
+      <span>Итого:</span>
+      <span>{totalSum.toLocaleString()}</span>
+    </div>
+  </div>
+</div>
+
       </div>
 
       <div className="flex flex-wrap gap-3">
