@@ -6,6 +6,7 @@ import { CustomerSalesForm } from '@/features/sales/ui/CustomerSalesForm'
 import { useState } from 'react'
 import { CustomerPaymentModal } from '@/widgets/modals/CustomerPaymentModal'
 import { SalesDetailModal } from '@/widgets/modals/SalesDetailModal'
+import { CreateReturnModal } from '@/widgets/modals/CreateReturnModal'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 
@@ -14,11 +15,12 @@ export const CustomerSalesPage = () => {
   const navigate = useNavigate()
   const [showSalesForm, setShowSalesForm] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showCreateReturnModal, setShowCreateReturnModal] = useState(false)
   const [selectedOperation, setSelectedOperation] = useState<typeof sales[0] | null>(null)
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear())
-  const [selectedType, setSelectedType] = useState<'PAID' | 'DEBT' | 'PAYMENT' | undefined>(undefined)
+  const [selectedType, setSelectedType] = useState<'PAID' | 'DEBT' | 'PAYMENT' | 'RETURN' | undefined>(undefined)
   
   const { data, isLoading, isError } = useGetCustomerOperationsQuery({ 
     customerId: Number(customerId),
@@ -52,7 +54,7 @@ export const CustomerSalesPage = () => {
         '#': (index + 1).toString(),
         'Дата': new Date(operation.date).toLocaleDateString('ru-RU'),
         'Сумма': Number(operation.sum).toFixed(2),
-        'Тип': operation.type === 'DEBT' ? 'В долг' : operation.type === 'PAYMENT' ? 'Оплата' : 'Оплачено',
+        'Тип': operation.type === 'DEBT' ? 'В долг' : operation.type === 'PAYMENT' ? 'Оплата' : operation.type === 'RETURN' ? 'Возврат' : 'Оплачено',
         'Магазин': operation.store_name || '—',
       }));
       
@@ -113,6 +115,12 @@ export const CustomerSalesPage = () => {
           <DollarSign size={16} />
           Оплата
         </button>
+        <button
+          onClick={() => setShowCreateReturnModal(true)}
+          className="flex items-center gap-2 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600"
+        >
+          Создать возврат
+        </button>
         <button 
           onClick={() => setShowSalesForm(!showSalesForm)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
@@ -157,13 +165,14 @@ export const CustomerSalesPage = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Тип операции</label>
             <select
               value={selectedType ?? ''}
-              onChange={(e) => setSelectedType(e.target.value as 'PAID' | 'DEBT' | 'PAYMENT' | undefined)}
+              onChange={(e) => setSelectedType(e.target.value as 'PAID' | 'DEBT' | 'PAYMENT' | 'RETURN' | undefined)}
               className="border border-slate-300 rounded-lg px-3 py-2"
             >
               <option value="">Все типы</option>
               <option value="PAID">Оплачено</option>
               <option value="DEBT">В долг</option>
               <option value="PAYMENT">Оплата</option>
+              <option value="RETURN">Возврат</option>
             </select>
           </div>
           <button 
@@ -189,7 +198,7 @@ export const CustomerSalesPage = () => {
                 .reduce((total, operation) => {
                   if (operation.type === 'DEBT') {
                     return total + Number(operation.sum);
-                  } else if (operation.type === 'PAYMENT') {
+                  } else if (operation.type === 'PAYMENT' || operation.type === 'RETURN') {
                     return total - Number(operation.sum);
                   }
                   return total;
@@ -234,6 +243,17 @@ export const CustomerSalesPage = () => {
           // Refresh the data after payment
           window.location.reload();
         }}
+      />
+
+      <CreateReturnModal
+        open={showCreateReturnModal}
+        onClose={() => setShowCreateReturnModal(false)}
+        onSuccess={() => {
+          setShowCreateReturnModal(false)
+          window.location.reload()
+        }}
+        initialCustomerId={Number(customerId)}
+        initialStoreId={Number(storeId)}
       />
 
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
@@ -289,8 +309,8 @@ export const CustomerSalesPage = () => {
                       {sale.sum.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs ${sale.type === 'DEBT' ? 'bg-red-100 text-red-800' : sale.type === 'PAYMENT' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {sale.type === 'DEBT' ? 'В долг' : sale.type === 'PAYMENT' ? 'Оплата' : 'Оплачено'}
+                      <span className={`px-2 py-1 rounded-full text-xs ${sale.type === 'DEBT' ? 'bg-red-100 text-red-800' : sale.type === 'PAYMENT' ? 'bg-green-100 text-green-800' : sale.type === 'RETURN' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {sale.type === 'DEBT' ? 'В долг' : sale.type === 'PAYMENT' ? 'Оплата' : sale.type === 'RETURN' ? 'Возврат' : 'Оплачено'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
@@ -345,8 +365,8 @@ export const CustomerSalesPage = () => {
                     
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">Тип операции</label>
-                      <div className={`w-full rounded-lg border px-3 py-2 font-semibold ${selectedOperation.type === 'DEBT' ? 'bg-red-50 border-red-300 text-red-700' : selectedOperation.type === 'PAYMENT' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-blue-50 border-blue-300 text-blue-700'}`}>
-                        {selectedOperation.type === 'DEBT' ? 'В долг' : selectedOperation.type === 'PAYMENT' ? 'Оплата' : 'Оплачено'}
+                      <div className={`w-full rounded-lg border px-3 py-2 font-semibold ${selectedOperation.type === 'DEBT' ? 'bg-red-50 border-red-300 text-red-700' : selectedOperation.type === 'PAYMENT' ? 'bg-green-50 border-green-300 text-green-700' : selectedOperation.type === 'RETURN' ? 'bg-yellow-50 border-yellow-300 text-yellow-700' : 'bg-blue-50 border-blue-300 text-blue-700'}`}>
+                        {selectedOperation.type === 'DEBT' ? 'В долг' : selectedOperation.type === 'PAYMENT' ? 'Оплата' : selectedOperation.type === 'RETURN' ? 'Возврат' : 'Оплачено'}
                       </div>
                     </div>
                   </div>

@@ -21,8 +21,19 @@ export interface TReturn {
 }
 
 export interface TCreateReturn {
-  customer_id?: number
+  customer_id?: number | null
   sale_id?: number
   store_id?: number
+  items: Omit<TReturnItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
+}
+
+export interface TCreateRetailCashReturn {
+  store_id: number
+  items: Omit<TReturnItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
+}
+
+export interface TCreateRetailDebtReturn {
+  retail_debtor_id: number
+  store_id: number
   items: Omit<TReturnItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
 }

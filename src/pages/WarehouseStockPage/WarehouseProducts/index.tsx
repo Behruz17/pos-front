@@ -52,7 +52,7 @@ export const WarehouseProducts = ({
   onBack: () => void
   onSelectProduct: (id: number) => void
 }) => {
-  const { data, isLoading, isError } = useGetWarehouseProductsQuery(warehouseId)
+  const { data, isLoading, isError, error } = useGetWarehouseProductsQuery(warehouseId)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'products' | 'suppliers' | 'receipt'>('products')
   const [selectedSupplier, setSelectedSupplier] = useState<{id: number, name: string} | null>(null)
@@ -61,6 +61,8 @@ export const WarehouseProducts = ({
   const [editingSupplierId, setEditingSupplierId] = useState<number | null>(null)
   const [addingSupplier, setAddingSupplier] = useState<boolean>(false)
   const { isAdmin } = useAuth()
+
+  console.log('WarehouseProducts - data:', data, 'isLoading:', isLoading, 'isError:', isError, 'error:', error)
 
   const { 
     data: suppliersData, 
@@ -96,15 +98,51 @@ export const WarehouseProducts = ({
   }, [data, search])
 
   if (isLoading) {
-    return <div className="text-sm text-slate-500">Загрузка…</div>
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <button onClick={() => window.history.back()} className="text-blue-600 hover:text-blue-800">← Назад</button>
+        </div>
+        
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+          <div className="animate-spin inline-block w-6 h-6 border-4 border-slate-300 border-t-blue-600 rounded-full"></div>
+          <p className="text-slate-600">Загрузка товаров склада...</p>
+        </div>
+      </div>
+    )
   }
 
   if (isError) {
-    return <div className="text-sm text-red-500">Ошибка загрузки товаров</div>;
+    return (
+      <div className="space-y-4">
+        <button onClick={() => window.history.back()} className="text-blue-600 hover:text-blue-800">← Назад</button>
+        <div className="bg-white border border-red-200 rounded-2xl p-6 space-y-4">
+          <div className="text-lg font-semibold text-red-700">Ошибка загрузки товаров</div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2 text-sm font-mono">
+            <div><span className="text-slate-500">Склад ID:</span> <span className="text-slate-900">{warehouseId}</span></div>
+            <div className="mt-2 p-2 bg-red-100 rounded">
+              <p className="font-semibold text-red-900">Детали ошибки:</p>
+              <p className="text-red-800 whitespace-pre-wrap">{JSON.stringify(error, null, 2)}</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Попробовать снова
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!data) {
-    return <div className="text-sm text-slate-500">На этом складе пока нет товаров</div>;
+    return (
+      <div className="space-y-4">
+        <button onClick={() => window.history.back()} className="text-blue-600 hover:text-blue-800">← Назад</button>
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center text-slate-500">На этом складе пока нет товаров</div>
+      </div>
+    );
   }
 
   return (

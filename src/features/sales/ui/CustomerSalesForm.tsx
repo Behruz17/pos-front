@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 interface TSaleItem {
   product_id: number
   product_name: string
-  product_code: string  // Adding product_code as required by the interface
+  product_code: string | null  // Adding product_code as required by the interface
   quantity: number
   unit_price: number
 }
@@ -15,7 +15,7 @@ interface TSaleItem {
 const emptyItem: TSaleItem = {
   product_id: 0,
   product_name: '',
-  product_code: '',
+  product_code: null,
   quantity: 1,
   unit_price: 0,
 }
@@ -28,7 +28,7 @@ interface CustomerSalesFormProps {
 }
 
 export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, onSaleCreated }: CustomerSalesFormProps) => {
-  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
+  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('PAID')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const { data: products = [] } = useGetProductsQuery()
@@ -160,12 +160,12 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
     const lowerSearchTerm = searchTerm.toLowerCase()
     return products.filter((p) => 
       p.name.toLowerCase().includes(lowerSearchTerm) || 
-      p.product_code.toLowerCase().includes(lowerSearchTerm)
+      (p.product_code && p.product_code.toLowerCase().includes(lowerSearchTerm))
     )
   }
 
   // Handle product selection
-  const handleProductSelect = (productId: number, productName: string, productCode: string, rowIndex: number) => {
+  const handleProductSelect = (productId: number, productName: string, productCode: string | null, rowIndex: number) => {
     // Find the selected product to get its sales price
     const selectedProduct = products.find(p => p.id === productId);
     
@@ -190,8 +190,8 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
           onChange={(e) => setPaymentStatus(e.target.value as 'PAID' | 'DEBT')}
           className="w-full border rounded-lg px-3 py-2.5 mt-1"
         >
-          <option value="DEBT">В долг</option>
           <option value="PAID">Оплачено</option>
+          <option value="DEBT">В долг</option>
         </select>
       </div>
 

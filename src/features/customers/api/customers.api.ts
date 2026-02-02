@@ -77,7 +77,7 @@ const customersApi = baseApi.injectEndpoints({
       }),
       providesTags: ['Customers'],
     }),
-    getCustomerOperations: build.query<TCustomerOperations, { customerId?: number; store_id: number; type?: 'PAID' | 'DEBT' | 'PAYMENT'; month?: number; year?: number }>({
+    getCustomerOperations: build.query<TCustomerOperations, { customerId?: number; store_id: number; type?: 'PAID' | 'DEBT' | 'PAYMENT' | 'RETURN'; month?: number; year?: number }>({
       query: ({ customerId, store_id, type, month, year }) => {
         const params = new URLSearchParams();
         params.append('store_id', store_id.toString());

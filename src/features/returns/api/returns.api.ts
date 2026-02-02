@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TReturn, TCreateReturn } from '../model/returns.types'
+import type { TReturn, TCreateReturn, TCreateRetailCashReturn, TCreateRetailDebtReturn } from '../model/returns.types'
 
 const returnsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -13,7 +13,7 @@ const returnsApi = baseApi.injectEndpoints({
     }),
     createReturn: build.mutation<TReturn & TDefaultResponse, TCreateReturn>({
       query: (body) => ({
-        url: '/returns',
+        url: '/returns/client',
         method: 'POST',
         body,
       }),
@@ -25,7 +25,23 @@ const returnsApi = baseApi.injectEndpoints({
         method: 'GET',
       }),
     }),
+    createRetailCashReturn: build.mutation<TReturn & TDefaultResponse, TCreateRetailCashReturn>({
+      query: (body) => ({
+        url: '/returns/retail-cash',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Returns'],
+    }),
+    createRetailDebtReturn: build.mutation<TReturn & TDefaultResponse, TCreateRetailDebtReturn>({
+      query: (body) => ({
+        url: '/returns/retail-debt',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Returns'],
+    }),
   }),
 })
 
-export const { useCreateReturnMutation, useGetReturnsQuery, useGetOneDetailReturnQuery } = returnsApi
+export const { useCreateReturnMutation, useGetReturnsQuery, useGetOneDetailReturnQuery, useCreateRetailCashReturnMutation, useCreateRetailDebtReturnMutation } = returnsApi

@@ -14,7 +14,7 @@ export interface TSale {
   customer_id?: number
   customer_name?: string
   store_id: number
-  payment_status?: 'PAID' | 'DEBT'
+  payment_status?: 'PAID' | 'DEBT' | 'REFUND'
   items: TSaleItem[]
   created_at: string
   created_by_name: string
@@ -22,7 +22,7 @@ export interface TSale {
   store_name?: string
   warehouse_id?: number
   warehouse_name?: string
-  type?: 'SALE' | 'PAYMENT'
+  type?: 'SALE' | 'PAYMENT' | 'RETURN'
   amount?: number
   transaction_id?: number
 }
@@ -87,7 +87,7 @@ export interface TRetailDebtorPayment {
 
 export interface TRetailDebtorOperation {
   id: number
-  type: 'DEBT' | 'PAYMENT'
+  type: 'DEBT' | 'PAYMENT' | 'RETURN'
   amount: number
   description: string | null
   created_at: string

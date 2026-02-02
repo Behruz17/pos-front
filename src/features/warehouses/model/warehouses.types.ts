@@ -15,6 +15,7 @@ export type TGetWarehousesProductsCredentials = {
   productId: TId
 }
 export type TGetWarehousesSuppliers = {
+  warehouse: TWarehouse;
   suppliers: Array<{
     id: number;
     name: string;

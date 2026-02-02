@@ -25,7 +25,7 @@ const emptyItem: TSaleItem = {
 export const CreateSaleForm = () => {
   const [customer_id, setCustomerId] = useState<number | undefined>(undefined)
   const [store_id, setStoreId] = useState<number>(0)
-  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
+  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('PAID')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const { data: products = [] } = useGetProductsQuery()
@@ -156,7 +156,7 @@ export const CreateSaleForm = () => {
     const lowerSearchTerm = searchTerm.toLowerCase()
     return products.filter((p) => 
       p.name.toLowerCase().includes(lowerSearchTerm) || 
-      p.product_code.toLowerCase().includes(lowerSearchTerm)
+      (p.product_code != null && p.product_code.toLowerCase().includes(lowerSearchTerm))
     )
   }
 
@@ -222,8 +222,8 @@ export const CreateSaleForm = () => {
             onChange={(e) => setPaymentStatus(e.target.value as 'PAID' | 'DEBT')}
             className="w-full border rounded-lg px-3 py-2.5"
           >
-            <option value="DEBT">В долг</option>
             <option value="PAID">Оплачено</option>
+            <option value="DEBT">В долг</option>
           </select>
         </div>
       </div>

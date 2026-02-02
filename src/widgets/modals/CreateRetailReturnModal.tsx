@@ -1,20 +1,21 @@
-// Модалка не используется, правка
-
-import { useGetProductsQuery } from '@/features/products/api/products.api'
+import { useState, useRef, useEffect } from 'react'
 import { Modal } from './Modal'
-import { useGetCustomersQuery } from '@/features/customers/api/customers.api'
-import { useMemo, useState, useRef, useEffect } from 'react'
-import { Plus, ShoppingCart, Trash2 } from 'lucide-react'
-import { useCreateReturnMutation } from '@/features/returns/api/returns.api'
+import { Trash2, Plus, ShoppingCart } from 'lucide-react'
+import { useCreateRetailCashReturnMutation, useCreateRetailDebtReturnMutation } from '@/features/returns/api/returns.api'
+import { useGetProductsQuery } from '@/features/products/api/products.api'
+import { useGetStoresQuery } from '@/features/stores/api/stores.api'
+import { useGetRetailDebtorsQuery } from '@/features/sales/api/sales.api'
+import { toast } from 'sonner'
 
-type TSaleItemForm = {
-  product_id: number
+type TRetailReturnItemForm = {
+  product_id: number | 0
   product_name: string
   product_code: string | null
   quantity: number
   unit_price: number
 }
-const emptyItem: TSaleItemForm = {
+
+const emptyItem: TRetailReturnItemForm = {
   product_id: 0,
   product_name: '',
   product_code: null,
@@ -22,26 +23,28 @@ const emptyItem: TSaleItemForm = {
   unit_price: 0,
 }
 
-export const CreateReturnModal = ({
+type ReturnType = 'cash' | 'debt' | null
+
+export const CreateRetailReturnModal = ({
   open,
   onClose,
   onSuccess,
-  initialCustomerId,
-  initialStoreId,
+  storeId,
 }: {
   open: boolean
   onClose: () => void
-  onSuccess: () => void
-  initialCustomerId?: number
-  initialStoreId?: number
+  onSuccess?: () => void
+  storeId: number
 }) => {
   const { data: products = [] } = useGetProductsQuery()
-  const { data: customers = [] } = useGetCustomersQuery()
-  const [createReturn, { isLoading }] = useCreateReturnMutation()
-  const [customerId, setCustomerId] = useState(initialCustomerId ? String(initialCustomerId) : '')
-  const [storeId, setStoreId] = useState(initialStoreId ? String(initialStoreId) : '')
-  const [items, setItems] = useState<TSaleItemForm[]>([emptyItem])
-  const [debugError, setDebugError] = useState<string | null>(null)
+  const { data: stores = [] } = useGetStoresQuery()
+  const { data: retailDebtors = [] } = useGetRetailDebtorsQuery()
+  const [createRetailCashReturn, { isLoading: isCashLoading }] = useCreateRetailCashReturnMutation()
+  const [createRetailDebtReturn, { isLoading: isDebtLoading }] = useCreateRetailDebtReturnMutation()
+
+  const [returnType, setReturnType] = useState<ReturnType>(null)
+  const [selectedDebtorId, setSelectedDebtorId] = useState<number | ''>('')
+  const [items, setItems] = useState<TRetailReturnItemForm[]>([emptyItem])
 
   const refs = useRef<
     {
@@ -49,6 +52,7 @@ export const CreateReturnModal = ({
       productDropdownRef: React.MutableRefObject<HTMLDivElement | null>
       quantityRef: React.MutableRefObject<HTMLInputElement | null>
       priceRef: React.MutableRefObject<HTMLInputElement | null>
+      removeButtonRef: React.MutableRefObject<HTMLButtonElement | null>
     }[]
   >([])
 
@@ -60,6 +64,7 @@ export const CreateReturnModal = ({
           productDropdownRef: { current: null },
           quantityRef: { current: null },
           priceRef: { current: null },
+          removeButtonRef: { current: null },
         }
       }
     } else if (refs.current.length > items.length) {
@@ -67,19 +72,16 @@ export const CreateReturnModal = ({
     }
   }, [items])
 
-  const updateItem = (i: number, patch: Partial<TSaleItemForm>) =>
-    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)))
+  const updateItem = (index: number, patch: Partial<TRetailReturnItemForm>) =>
+    setItems((prev) => prev.map((it, idx) => (idx === index ? { ...it, ...patch } : it)))
 
   const addItem = () => setItems((p) => [...p, emptyItem])
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
   const getFilteredProducts = (searchTerm: string) => {
     if (!searchTerm) return products
-    const lowerSearchTerm = searchTerm.toLowerCase()
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(lowerSearchTerm) ||
-      (p.product_code != null && p.product_code.toLowerCase().includes(lowerSearchTerm))
-    )
+    const s = searchTerm.toLowerCase()
+    return products.filter((p) => p.name.toLowerCase().includes(s) || (p.product_code && p.product_code.toLowerCase().includes(s)))
   }
 
   const handleProductSelect = (productId: number, rowIndex: number) => {
@@ -93,7 +95,11 @@ export const CreateReturnModal = ({
     setTimeout(() => refs.current[rowIndex]?.quantityRef.current?.focus(), 0)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent, rowIndex: number, field: 'product' | 'quantity' | 'price') => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent,
+    rowIndex: number,
+    field: 'product' | 'quantity' | 'price'
+  ) => {
     if (e.key === 'Enter') {
       e.preventDefault()
       if (field === 'product') refs.current[rowIndex]?.quantityRef.current?.focus()
@@ -107,103 +113,108 @@ export const CreateReturnModal = ({
       }
     }
   }
-  const disabled = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0) || isLoading
-  const total = useMemo(
-    () => items.reduce((sum, i) => sum + (i.quantity || 0) * (i.unit_price || 0), 0),
-    [items]
-  )
-  const onSubmit = async () => {
-    if (disabled) return
 
-    if (!customerId) {
-      alert('Выберите клиента')
+  const isInvalid = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0)
+  const total = items.reduce((s, it) => s + it.quantity * it.unit_price, 0)
+  const isLoading = isCashLoading || isDebtLoading
+
+  const handleSubmit = async () => {
+    if (!returnType || isInvalid) return
+    if (returnType === 'debt' && !selectedDebtorId) {
+      toast.error('Выберите должника')
       return
     }
 
-    if (!storeId) {
-      alert('Не указан магазин')
-      return
-    }
-
-    const payload = {
-      customer_id: Number(customerId),
-      store_id: Number(storeId),
-      items: items.map((i) => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        unit_price: i.unit_price,
-      })),
-    }
-
-    setDebugError(null)
     try {
-      await createReturn(payload).unwrap()
-      setDebugError(null)
-      setCustomerId('')
-      setStoreId('')
-      setItems([emptyItem])
-      onSuccess?.()
-    } catch (error) {
-      let errorMsg = 'Ошибка при создании возврата'
-      let errorDetails = ''
-      if (typeof error === 'object' && error !== null) {
-        errorDetails = JSON.stringify(error, null, 2)
-        errorMsg += `\n\nОшибка:\n${errorDetails}`
+      if (returnType === 'cash') {
+        await createRetailCashReturn({
+          store_id: storeId,
+          items: items.map((it) => ({ product_id: it.product_id, quantity: it.quantity, unit_price: it.unit_price })),
+        }).unwrap()
+
+        toast.success('Возврат наличными создан')
+      } else {
+        await createRetailDebtReturn({
+          retail_debtor_id: selectedDebtorId as number,
+          store_id: storeId,
+          items: items.map((it) => ({ product_id: it.product_id, quantity: it.quantity, unit_price: it.unit_price })),
+        }).unwrap()
+
+        toast.success('Возврат в долг создан')
       }
-      setDebugError(errorDetails)
-      alert(errorMsg)
+
+      setItems([emptyItem])
+      setReturnType(null)
+      setSelectedDebtorId('')
+      onClose()
+      onSuccess?.()
+    } catch (err) {
+      console.error(err)
+      toast.error('Ошибка при создании возврата')
     }
   }
 
-  return (
-    <Modal open={open} onClose={onClose} title="Новый возврат" size="4xl">
-      {debugError && (
-        <div className="bg-red-50 border border-red-300 rounded-lg p-4 mb-4">
-          <p className="text-sm font-semibold text-red-800 mb-2">Ошибка:</p>
-          <pre className="text-xs text-red-700 overflow-auto max-h-40 whitespace-pre-wrap break-words">
-            {debugError}
-          </pre>
-        </div>
-      )}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600">Клиент</label>
-            {initialCustomerId ? (
-              <input
-                value={
-                  customers.find((c) => c.id === Number(customerId))?.full_name || `#${customerId}`
-                }
-                disabled
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-slate-100"
-              />
-            ) : (
-              <select
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Демо-клиент</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.full_name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+  const getStoreName = (id: number) => stores.find((s) => s.id === id)?.name || ''
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600">Магазин</label>
-            <input
-              value={storeId}
-              onChange={(e) => setStoreId(e.target.value)}
-              placeholder="ID магазина"
-              className={`w-full rounded-lg border border-slate-300 px-3 py-2 text-sm ${initialStoreId ? 'bg-slate-100' : ''}`}
-              disabled={!!initialStoreId}
-            />
+  // If return type not selected, show selection screen
+  if (!returnType) {
+    return (
+      <Modal open={open} onClose={onClose} title="Тип возврата">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Выберите тип возврата для магазина <strong>{getStoreName(storeId)}</strong>
+          </p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => setReturnType('cash')}
+              className="p-6 border-2 border-blue-300 rounded-lg hover:bg-blue-50 transition"
+            >
+              <div className="text-xl font-semibold text-blue-600 mb-2">💰 Наличные</div>
+              <div className="text-sm text-slate-600">Возврат товара наличными</div>
+            </button>
+
+            <button
+              onClick={() => setReturnType('debt')}
+              className="p-6 border-2 border-orange-300 rounded-lg hover:bg-orange-50 transition"
+            >
+              <div className="text-xl font-semibold text-orange-600 mb-2">📋 В долг</div>
+              <div className="text-sm text-slate-600">Возврат в счет погашения долга</div>
+            </button>
           </div>
         </div>
+      </Modal>
+    )
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={() => {
+        setReturnType(null)
+        onClose()
+      }}
+      title={returnType === 'cash' ? 'Возврат наличными' : 'Возврат в долг'}
+      size="4xl"
+    >
+      <div className="space-y-4">
+        {returnType === 'debt' && (
+          <div>
+            <label className="text-sm font-medium">Должник *</label>
+            <select
+              value={selectedDebtorId}
+              onChange={(e) => setSelectedDebtorId(e.target.value ? Number(e.target.value) : '')}
+              className="w-full border rounded-lg px-3 py-2.5"
+            >
+              <option value="">Выберите должника</option>
+              {retailDebtors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.customer_name} (Долг: {d.remaining_balance})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="grid grid-cols-12 gap-4 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
@@ -216,7 +227,7 @@ export const CreateReturnModal = ({
           </div>
 
           {items.map((item, i) => {
-            const filteredProducts = getFilteredProducts(item.product_name)
+            const filtered = getFilteredProducts(item.product_name)
             return (
               <div key={i} className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative">
                 <div className="col-span-12 lg:col-span-3 relative">
@@ -224,19 +235,19 @@ export const CreateReturnModal = ({
                   <input
                     ref={refs.current[i]?.productInputRef}
                     type="text"
-                    value={item.product_name || ''}
+                    value={item.product_name}
                     onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0, product_code: null })}
                     onKeyDown={(e) => handleKeyDown(e, i, 'product')}
                     placeholder="Поиск товара..."
                     className="w-full border rounded-lg px-3 py-2.5"
                   />
 
-                  {!item.product_id && item.product_name && filteredProducts.length > 0 && (
+                  {!item.product_id && item.product_name && filtered.length > 0 && (
                     <div ref={refs.current[i]?.productDropdownRef} className="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
-                      {filteredProducts.map((p) => (
+                      {filtered.map((p) => (
                         <div key={p.id} className="p-2 hover:bg-blue-100 cursor-pointer border-b last:border-b-0" onClick={() => handleProductSelect(p.id, i)}>
                           <div className="font-medium">{p.name}</div>
-                          <div className="text-xs text-gray-500">Артикул: {p.product_code || '—'}</div>
+                          <div className="text-xs text-gray-500">Артикул: {p.product_code}</div>
                         </div>
                       ))}
                     </div>
@@ -291,7 +302,7 @@ export const CreateReturnModal = ({
 
                 <div className="col-span-12 lg:col-span-2 flex items-end">
                   {items.length > 1 && (
-                    <button onClick={() => removeItem(i)} className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5">
+                    <button ref={refs.current[i]?.removeButtonRef} onClick={() => removeItem(i)} className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5">
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -307,25 +318,24 @@ export const CreateReturnModal = ({
 
         <div className="flex items-center justify-between border-t pt-4">
           <div className="text-sm text-slate-600">
-            Итого: <span className="font-semibold">{total.toLocaleString()} с</span>
+            Итого: <span className="font-semibold">{total.toLocaleString()}</span>
           </div>
 
-          <button
-            onClick={onSubmit}
-            disabled={disabled}
-            className="
-              inline-flex items-center gap-2
-              px-6 py-3 rounded-xl
-              bg-blue-600 text-white text-sm font-medium
-              hover:bg-blue-700
-              disabled:bg-slate-200 disabled:text-slate-400
-            "
-          >
-            <ShoppingCart size={18} />
-            Оформить возврат
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setReturnType(null)}
+              className="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50"
+            >
+              Назад
+            </button>
+            <button onClick={handleSubmit} disabled={isInvalid || isLoading || (returnType === 'debt' && !selectedDebtorId)} className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 text-white disabled:bg-gray-400">
+              <ShoppingCart size={16} /> {returnType === 'cash' ? 'Вернуть наличными' : 'Вернуть в долг'}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>
   )
 }
+
+export default CreateRetailReturnModal

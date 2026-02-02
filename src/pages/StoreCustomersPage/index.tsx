@@ -17,6 +17,7 @@ import { Trash2, PackagePlus, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import CustomerFormModal from '@/widgets/modals/CustomerFormModal'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
+import CreateRetailReturnModal from '@/widgets/modals/CreateRetailReturnModal'
 
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
@@ -24,6 +25,7 @@ export const StoreCustomersPage = () => {
   const [activeTab, setActiveTab] = useState<'customers' | 'expenses' | 'sales' | 'statistics' | 'retailDebts'>('customers')
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [showSalesForm, setShowSalesForm] = useState(false)
+  const [showRetailReturnModal, setShowRetailReturnModal] = useState(false)
   const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null)
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false)
 
@@ -35,7 +37,7 @@ export const StoreCustomersPage = () => {
    const { me,isAdmin } = useAuth()
    
   const { data, isLoading, isError } = useGetStoreCustomersQuery(Number(storeId))
-  const { data: expenses = [], isLoading: isExpensesLoading, refetch } = useGetExpensesQuery({
+  const { data: expenses = [], isLoading: isExpensesLoading, refetch: refetchExpenses } = useGetExpensesQuery({
     store_id: Number(storeId),
     month: selectedMonth,
     year: selectedYear,
@@ -47,7 +49,7 @@ export const StoreCustomersPage = () => {
     year: selectedYear,
   };
   
-  const { data: storeSales = [], isLoading: isSalesLoading } = useGetSalesQuery(salesQueryParams)
+  const { data: storeSales = [], isLoading: isSalesLoading, refetch: refetchSales } = useGetSalesQuery(salesQueryParams)
   const { data: retailDebtors = [], isLoading: isRetailDebtorsLoading } = useGetRetailDebtorsQuery()
   const [createRetailDebtorPayment, { isLoading: isCreatingRetailPayment }] = useCreateRetailDebtorPaymentMutation()
   
@@ -82,6 +84,26 @@ export const StoreCustomersPage = () => {
   }
 
   const { store, customers } = data
+
+  // Compute sales/returns totals and counts. Treat RETURN as a payment.
+  const salesCount = storeSales.filter(t => t.type === 'SALE').length
+  const paymentsAndReturnsCount = storeSales.filter(t => t.type === 'PAYMENT' || t.type === 'RETURN').length
+
+  const totalSalesSum = (
+    storeSales.filter(t => t.type === 'SALE').reduce((total, t) => total + Number(t.amount || 0), 0) -
+    storeSales.filter(t => t.type === 'RETURN').reduce((total, t) => total + Number(t.amount || 0), 0)
+  )
+
+  const paidSum = storeSales
+    .filter(t => (t.type === 'SALE' && t.payment_status === 'PAID') || t.type === 'PAYMENT' || t.type === 'RETURN')
+    .reduce((total, t) => total + Number(t.amount || 0), 0)
+
+  const debtSum = storeSales
+    .filter(t => t.type === 'SALE' && t.payment_status === 'DEBT')
+    .reduce((total, t) => total + Number(t.amount || 0), 0)
+
+  const paidCount = storeSales.filter(t => (t.type === 'SALE' && t.payment_status === 'PAID') || t.type === 'PAYMENT' || t.type === 'RETURN').length
+  const debtCount = storeSales.filter(t => t.type === 'SALE' && t.payment_status === 'DEBT').length
 
 
   // Filter sales by store_id (already done server-side, but keeping for safety)
@@ -157,7 +179,7 @@ export const StoreCustomersPage = () => {
       setAmount('');
       setComment('');
       setShowExpenseForm(false);
-      refetch(); // Refresh expenses list
+      refetchExpenses(); // Refresh expenses list
     } catch (error) {
       toast.error('Ошибка при создании расхода');
       console.error(error);
@@ -698,6 +720,17 @@ export const StoreCustomersPage = () => {
                   Экспорт в Excel
                 </button>
                 <button 
+                  onClick={() => setShowRetailReturnModal(true)}
+                  disabled={!isAdmin && me?.store_id !== Number(storeId)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
+                    ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                  title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете создавать возвраты только в свой магазин' : ''}
+                >
+                  <Plus size={16} />
+                  Возврат
+                </button>
+                <button 
                   onClick={() => setShowSalesForm(!showSalesForm)}
                   disabled={!isAdmin && me?.store_id !== Number(storeId)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
@@ -798,34 +831,19 @@ export const StoreCustomersPage = () => {
               <div className="flex justify-between items-center">
                 <div className="text-green-800">
                   <span className="font-semibold">Итого продаж: </span>
-                  <span className="text-xl font-bold">
-                    {storeSales
-                      .filter(transaction => transaction.type === 'SALE')
-                      .reduce((total, transaction) => total + Number(transaction.amount || 0), 0)
-                      .toFixed(2)}
-                  </span>
+                  <span className="text-xl font-bold">{totalSalesSum.toFixed(2)}</span>
                   <div className="text-sm mt-1">
-                    <span className="text-green-600">Оплачено: {
-                      storeSales
-                        .filter(t => t.type === 'SALE' && t.payment_status === 'PAID')
-                        .reduce((total, t) => total + Number(t.amount || 0), 0)
-                        .toFixed(2)
-                    }</span>
+                    <span className="text-green-600">Оплачено: {paidSum.toFixed(2)}</span>
                     <span className="mx-2 text-slate-400">|</span>
-                    <span className="text-red-600">В долг: {
-                      storeSales
-                        .filter(t => t.type === 'SALE' && t.payment_status === 'DEBT')
-                        .reduce((total, t) => total + Number(t.amount || 0), 0)
-                        .toFixed(2)
-                    }</span>
+                    <span className="text-red-600">В долг: {debtSum.toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="text-sm text-green-600">
-                  {storeSales.filter(t => t.type === 'SALE').length} продаж
+                  {salesCount} продаж
                   <div className="text-xs text-slate-500 mt-1">
-                    Оплачено: {storeSales.filter(t => t.type === 'SALE' && t.payment_status === 'PAID').length} | 
-                    В долг: {storeSales.filter(t => t.type === 'SALE' && t.payment_status === 'DEBT').length} | 
-                    Оплат: {storeSales.filter(t => t.type === 'PAYMENT').length}
+                    Оплачено: {paidCount} | 
+                    В долг: {debtCount} | 
+                    Оплат: {paymentsAndReturnsCount}
                   </div>
                 </div>
               </div>
@@ -853,7 +871,7 @@ export const StoreCustomersPage = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {[...storeSales]
-                      .filter(transaction => transaction.type === 'SALE' || transaction.type === 'PAYMENT')
+                      .filter(transaction => transaction.type === 'SALE' || transaction.type === 'PAYMENT' || transaction.type === 'RETURN')
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .slice(0, 15)
                       .map((transaction) => (
@@ -879,22 +897,26 @@ export const StoreCustomersPage = () => {
                             {transaction.customer_name || '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs ${transaction.type === 'SALE' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}`}>
-                              {transaction.type === 'SALE' ? 'Продажа' : 'Оплата'}
-                            </span>
+                            {transaction.type === 'SALE' ? (
+                              <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">Продажа</span>
+                            ) : transaction.type === 'RETURN' ? (
+                              <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">Возврат</span>
+                            ) : (
+                              <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Оплата</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                             {Number(transaction.amount || 0).toFixed(2)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {transaction.type === 'SALE' ? (
+                            {transaction.payment_status === 'REFUND' ? (
+                              <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">Возврат</span>
+                            ) : transaction.type === 'SALE' ? (
                               <span className={`px-2 py-1 rounded-full text-xs ${transaction.payment_status === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                                 {transaction.payment_status === 'DEBT' ? 'В долг' : 'Оплачено'}
                               </span>
                             ) : (
-                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                                Оплачено
-                              </span>
+                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Оплачено</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-500">
@@ -1119,6 +1141,15 @@ export const StoreCustomersPage = () => {
           }}
         />
       )}
+
+      <CreateRetailReturnModal
+        open={showRetailReturnModal}
+        onClose={() => setShowRetailReturnModal(false)}
+        onSuccess={() => {
+          refetchSales()
+        }}
+        storeId={Number(storeId)}
+      />
     </div>
   )
 }
@@ -1127,7 +1158,7 @@ export const StoreCustomersPage = () => {
 interface StoreSaleItem {
   product_id: number
   product_name: string
-  product_code: string
+  product_code: string | null
   quantity: number
   unit_price: number
 }
@@ -1135,7 +1166,7 @@ interface StoreSaleItem {
 const emptyItem: StoreSaleItem = {
   product_id: 0,
   product_name: '',
-  product_code: '',
+  product_code: null,
   quantity: 1,
   unit_price: 0,
 }
@@ -1146,7 +1177,7 @@ interface StoreSalesFormProps {
 }
 
 const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
-  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
+  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('PAID')
   const [items, setItems] = useState<StoreSaleItem[]>([emptyItem])
   const [customerName, setCustomerName] = useState('')
   const [phone, setPhone] = useState('')
@@ -1290,12 +1321,12 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
     const lowerSearchTerm = searchTerm.toLowerCase()
     return products.filter((p) => 
       p.name.toLowerCase().includes(lowerSearchTerm) || 
-      p.product_code.toLowerCase().includes(lowerSearchTerm)
+      (p.product_code && p.product_code.toLowerCase().includes(lowerSearchTerm))
     )
   }
 
   // Handle product selection
-  const handleProductSelect = (productId: number, productName: string, productCode: string, rowIndex: number) => {
+  const handleProductSelect = (productId: number, productName: string, productCode: string | null, rowIndex: number) => {
     // Find the selected product to get its sales price
     const selectedProduct = products.find(p => p.id === productId);
     
@@ -1303,18 +1334,13 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
     updateItem(rowIndex, { 
       product_id: productId, 
       product_name: productName,
-      product_code: productCode,
+      product_code: productCode || undefined,
       unit_price: selectedProduct ? Number(selectedProduct.selling_price) : 0
     })
     setTimeout(() => {
       refs.current[rowIndex]?.quantityRef.current?.focus()
     }, 0)
   }
-  const totalSum = items.reduce(
-  (sum, item) => sum + item.quantity * item.unit_price,
-  0
-);
-
 
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
@@ -1325,8 +1351,8 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
           onChange={(e) => setPaymentStatus(e.target.value as 'PAID' | 'DEBT')}
           className="w-full border rounded-lg px-3 py-2.5 mt-1"
         >
-          <option value="DEBT">В долг</option>
           <option value="PAID">Оплачено</option>
+          <option value="DEBT">В долг</option>
         </select>
       </div>
 
@@ -1370,176 +1396,135 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
           <div className="col-span-2">Действия</div>
         </div>
 
-  
+        {items.map((item, i) => {
+          const filteredProducts = getFilteredProducts(item.product_name)
+          return (
+            <div key={i} className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative">
+              <div className="col-span-12 lg:col-span-3 relative">
+                <label className="text-xs text-gray-500 lg:hidden">Товар</label>
+                <input
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].productInputRef.current = el;
+                    }
+                  }}
+                  type="text"
+                  value={item.product_name}
+                  onChange={(e) => updateItem(i, { product_name: e.target.value, product_id: 0, product_code: '' })}
+                  onKeyDown={(e) => handleKeyDown(e, i, 'product')}
+                  placeholder="Поиск товара..."
+                  className="w-full border rounded-lg px-3 py-2.5"
+                />
 
-{items.map((item, i) => {
-  const filteredProducts = getFilteredProducts(item.product_name);
-
-  return (
-    <div
-      key={i}
-      className="grid grid-cols-12 gap-4 bg-white border p-3 rounded-xl relative"
-    >
-      {/* Товар */}
-      <div className="col-span-12 lg:col-span-3 relative">
-        <label className="text-xs text-gray-500 lg:hidden">Товар</label>
-        <input
-          ref={(el) => {
-            if (refs.current[i]) {
-              refs.current[i].productInputRef.current = el;
-            }
-          }}
-          type="text"
-          value={item.product_name}
-          onChange={(e) =>
-            updateItem(i, {
-              product_name: e.target.value,
-              product_id: 0,
-              product_code: '',
-            })
-          }
-          onKeyDown={(e) => handleKeyDown(e, i, 'product')}
-          placeholder="Поиск товара..."
-          className="w-full border rounded-lg px-3 py-2.5"
-        />
-
-        {/* Dropdown */}
-        {!item.product_id &&
-          item.product_name &&
-          filteredProducts.length > 0 && (
-            <div
-              ref={(el) => {
-                if (refs.current[i]) {
-                  refs.current[i].productDropdownRef.current = el;
-                }
-              }}
-              className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
-            >
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="p-2 hover:bg-blue-100 cursor-pointer border-b last:border-b-0"
-                  onClick={() =>
-                    handleProductSelect(
-                      product.id,
-                      product.name,
-                      product.product_code,
-                      i
-                    )
-                  }
-                >
-                  <div className="font-medium">{product.name}</div>
-                  <div className="text-xs text-gray-500">
-                    Артикул: {product.product_code}
+                {/* Dropdown for product suggestions */}
+                {!item.product_id && item.product_name && filteredProducts.length > 0 && (
+                  <div
+                    ref={(el) => {
+                      if (refs.current[i]) {
+                        refs.current[i].productDropdownRef.current = el;
+                      }
+                    }}
+                    className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
+                  >
+                    {filteredProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="p-2 hover:bg-blue-100 cursor-pointer border-b last:border-b-0"
+                        onClick={() => handleProductSelect(product.id, product.name, product.product_code, i)}
+                      >
+                        <div className="font-medium">{product.name}</div>
+                        <div className="text-xs text-gray-500">Артикул: {product.product_code}</div>
+                      </div>
+                    ))}
                   </div>
+                )}
+              </div>
+
+              <div className="col-span-6 lg:col-span-2">
+                <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
+                <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">
+                  {item.product_code || '—'}
                 </div>
-              ))}
+              </div>
+
+              <div className="col-span-6 lg:col-span-2">
+                <label className="text-xs text-gray-500 lg:hidden">Количество</label>
+                <input
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].quantityRef.current = el;
+                    }
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={item.quantity === 0 ? '' : item.quantity}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/^0+/, '') || '0';
+                    const numValue = Number(value);
+                    if (!isNaN(numValue) && numValue >= 0) {
+                      updateItem(i, { quantity: numValue });
+                    }
+                  }}
+                  onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
+                  className="w-full border rounded-lg px-3 py-2.5"
+                />
+              </div>
+
+              <div className="col-span-6 lg:col-span-2">
+                <label className="text-xs text-gray-500 lg:hidden">Цена за единицу</label>
+                <input
+                  ref={(el) => {
+                    if (refs.current[i]) {
+                      refs.current[i].priceRef.current = el;
+                    }
+                  }}
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*(.[0-9]+)?"
+                  value={item.unit_price === 0 ? '' : item.unit_price}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/^0+(?=\d)/, '');
+                    const numValue = Number(value);
+                    if (!isNaN(numValue) && numValue >= 0) {
+                      updateItem(i, { unit_price: numValue });
+                    }
+                  }}
+                  onKeyDown={(e) => handleKeyDown(e, i, 'price')}
+                  onFocus={() => {
+                    // Add a new row when this input gets focus in the last row
+                    if (i === items.length - 1) {
+                      addItem();
+                    }
+                  }}
+                  className="w-full border rounded-lg px-3 py-2.5"
+                />
+              </div>
+
+              <div className="col-span-6 lg:col-span-1 flex items-end">
+                <div className="w-full text-center font-semibold py-2.5">
+                  {(item.quantity * item.unit_price).toLocaleString()}
+                </div>
+              </div>
+
+              <div className="col-span-12 lg:col-span-2 flex items-end">
+                {items.length > 1 && (
+                  <button
+                    ref={(el) => {
+                      if (refs.current[i]) {
+                        refs.current[i].removeButtonRef.current = el;
+                      }
+                    }}
+                    onClick={() => removeItem(i)}
+                    className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
             </div>
-          )}
-      </div>
-
-      {/* Артикул */}
-      <div className="col-span-6 lg:col-span-2">
-        <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
-        <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">
-          {item.product_code || '—'}
-        </div>
-      </div>
-
-      {/* Количество */}
-      <div className="col-span-6 lg:col-span-2">
-        <label className="text-xs text-gray-500 lg:hidden">Количество</label>
-        <input
-          ref={(el) => {
-            if (refs.current[i]) {
-              refs.current[i].quantityRef.current = el;
-            }
-          }}
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={item.quantity === 0 ? '' : item.quantity}
-          onChange={(e) => {
-            const value = e.target.value.replace(/^0+/, '') || '0';
-            const numValue = Number(value);
-            if (!isNaN(numValue) && numValue >= 0) {
-              updateItem(i, { quantity: numValue });
-            }
-          }}
-          onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
-          className="w-full border rounded-lg px-3 py-2.5"
-        />
-      </div>
-
-      {/* Цена */}
-      <div className="col-span-6 lg:col-span-2">
-        <label className="text-xs text-gray-500 lg:hidden">
-          Цена за единицу
-        </label>
-        <input
-          ref={(el) => {
-            if (refs.current[i]) {
-              refs.current[i].priceRef.current = el;
-            }
-          }}
-          type="text"
-          inputMode="decimal"
-          pattern="[0-9]*(.[0-9]+)?"
-          value={item.unit_price === 0 ? '' : item.unit_price}
-          onChange={(e) => {
-            const value = e.target.value.replace(/^0+(?=\d)/, '');
-            const numValue = Number(value);
-            if (!isNaN(numValue) && numValue >= 0) {
-              updateItem(i, { unit_price: numValue });
-            }
-          }}
-          onKeyDown={(e) => handleKeyDown(e, i, 'price')}
-          onFocus={() => {
-            if (i === items.length - 1) {
-              addItem();
-            }
-          }}
-          className="w-full border rounded-lg px-3 py-2.5"
-        />
-      </div>
-
-      {/* Сумма строки */}
-      <div className="col-span-6 lg:col-span-1 flex items-end">
-        <div className="w-full text-center font-semibold py-2.5">
-          {(item.quantity * item.unit_price).toLocaleString()}
-        </div>
-      </div>
-
-      {/* Удалить */}
-      <div className="col-span-12 lg:col-span-2 flex items-end">
-        {items.length > 1 && (
-          <button
-            ref={(el) => {
-              if (refs.current[i]) {
-                refs.current[i].removeButtonRef.current = el;
-              }
-            }}
-            onClick={() => removeItem(i)}
-            className="w-full flex items-center justify-center gap-2 text-red-600 border border-red-600 rounded-lg py-2.5"
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-})}
-
-{/* ИТОГО */}
-<div className="mt-4 flex justify-start">
-  <div className="w-full lg:w-1/3 bg-gray-100 border rounded-xl p-4">
-    <div className="flex justify-between text-lg font-semibold">
-      <span>Итого:</span>
-      <span>{totalSum.toLocaleString()}</span>
-    </div>
-  </div>
-</div>
-
+          )
+        })}
       </div>
 
       <div className="flex flex-wrap gap-3">

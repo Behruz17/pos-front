@@ -45,9 +45,10 @@ export interface TCustomerOperation {
   store_id: number;
   store_name: string;
   sum: number;
-  type: 'PAID' | 'DEBT' | 'PAYMENT';
+  type: 'PAID' | 'DEBT' | 'PAYMENT' | 'RETURN';
   date: string;
-  sale_id?: number;
+  sale_id?: number | null;
+  source?: string;
 }
 
 export interface TCustomerOperationsWithCustomer {
