@@ -33,9 +33,8 @@ const baseQueryWithAuth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQuery
   if (result.error) {
     if (result.error.status === 401) {
       Cookie.remove('token')
+      // errorHandler(result.error)
     }
-
-    errorHandler(result.error)
   }
 
   return result

@@ -27,8 +27,7 @@ const AuthPage = () => {
 
     if (!login || !password) return
     const { token } = await loginTrigger({ login, password }).unwrap()
-  
-    
+
     Cookie.set('token', token)
     navigate(paths.home())
   }

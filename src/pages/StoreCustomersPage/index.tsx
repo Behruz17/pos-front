@@ -5,7 +5,12 @@ import { paths } from '@/app/routers/constants'
 import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useGetExpensesQuery, useCreateExpenseMutation } from '@/features/expenses/api/expenses.api'
-import { useGetSalesQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorDetailQuery } from '@/features/sales/api/sales.api'
+import {
+  useGetSalesQuery,
+  useGetRetailDebtorsQuery,
+  useCreateRetailDebtorPaymentMutation,
+  useGetRetailDebtorDetailQuery,
+} from '@/features/sales/api/sales.api'
 import { useGetStoreFinancialSummaryQuery } from '@/features/stores/api/stores.api'
 import { toast } from 'sonner'
 import { skipToken } from '@reduxjs/toolkit/query'
@@ -22,7 +27,9 @@ import CreateRetailReturnModal from '@/widgets/modals/CreateRetailReturnModal'
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'customers' | 'expenses' | 'sales' | 'statistics' | 'retailDebts'>('customers')
+  const [activeTab, setActiveTab] = useState<'customers' | 'expenses' | 'sales' | 'statistics' | 'retailDebts'>(
+    'customers'
+  )
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [showSalesForm, setShowSalesForm] = useState(false)
   const [showRetailReturnModal, setShowRetailReturnModal] = useState(false)
@@ -37,7 +44,11 @@ export const StoreCustomersPage = () => {
   const { me, isAdmin } = useAuth()
 
   const { data, isLoading, isError } = useGetStoreCustomersQuery(Number(storeId))
-  const { data: expenses = [], isLoading: isExpensesLoading, refetch: refetchExpenses } = useGetExpensesQuery({
+  const {
+    data: expenses = [],
+    isLoading: isExpensesLoading,
+    refetch: refetchExpenses,
+  } = useGetExpensesQuery({
     store_id: Number(storeId),
     month: selectedMonth,
     year: selectedYear,
@@ -47,10 +58,12 @@ export const StoreCustomersPage = () => {
     day: selectedDay,
     month: selectedMonth,
     year: selectedYear,
-  };
+  }
 
   const { data: storeSales = [], isLoading: isSalesLoading, refetch: refetchSales } = useGetSalesQuery(salesQueryParams)
-  const { data: retailDebtors = [], isLoading: isRetailDebtorsLoading } = useGetRetailDebtorsQuery({ store_id: Number(storeId) })
+  const { data: retailDebtors = [], isLoading: isRetailDebtorsLoading } = useGetRetailDebtorsQuery({
+    store_id: Number(storeId),
+  })
   const [createRetailDebtorPayment, { isLoading: isCreatingRetailPayment }] = useCreateRetailDebtorPaymentMutation()
 
   // State for payment modal
@@ -61,7 +74,9 @@ export const StoreCustomersPage = () => {
 
   // State for debtor details
   const [selectedDebtorDetailsId, setSelectedDebtorDetailsId] = useState<number | null>(null)
-  const { data: debtorDetail, isLoading: isDebtorDetailLoading } = useGetRetailDebtorDetailQuery(selectedDebtorDetailsId || skipToken)
+  const { data: debtorDetail, isLoading: isDebtorDetailLoading } = useGetRetailDebtorDetailQuery(
+    selectedDebtorDetailsId || skipToken
+  )
 
   // State for sale details
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null)
@@ -86,25 +101,25 @@ export const StoreCustomersPage = () => {
   const { store, customers } = data
 
   // Compute sales/returns totals and counts. Treat RETURN as a payment.
-  const salesCount = storeSales.filter(t => t.type === 'SALE').length
-  const paymentsAndReturnsCount = storeSales.filter(t => t.type === 'PAYMENT' || t.type === 'RETURN').length
+  const salesCount = storeSales.filter((t) => t.type === 'SALE').length
+  const paymentsAndReturnsCount = storeSales.filter((t) => t.type === 'PAYMENT' || t.type === 'RETURN').length
 
-  const totalSalesSum = (
-    storeSales.filter(t => t.type === 'SALE').reduce((total, t) => total + Number(t.amount || 0), 0) -
-    storeSales.filter(t => t.type === 'RETURN').reduce((total, t) => total + Number(t.amount || 0), 0)
-  )
+  const totalSalesSum =
+    storeSales.filter((t) => t.type === 'SALE').reduce((total, t) => total + Number(t.amount || 0), 0) -
+    storeSales.filter((t) => t.type === 'RETURN').reduce((total, t) => total + Number(t.amount || 0), 0)
 
   const paidSum = storeSales
-    .filter(t => (t.type === 'SALE' && t.payment_status === 'PAID') || t.type === 'PAYMENT' || t.type === 'RETURN')
+    .filter((t) => (t.type === 'SALE' && t.payment_status === 'PAID') || t.type === 'PAYMENT' || t.type === 'RETURN')
     .reduce((total, t) => total + Number(t.amount || 0), 0)
 
   const debtSum = storeSales
-    .filter(t => t.type === 'SALE' && t.payment_status === 'DEBT')
+    .filter((t) => t.type === 'SALE' && t.payment_status === 'DEBT')
     .reduce((total, t) => total + Number(t.amount || 0), 0)
 
-  const paidCount = storeSales.filter(t => (t.type === 'SALE' && t.payment_status === 'PAID') || t.type === 'PAYMENT' || t.type === 'RETURN').length
-  const debtCount = storeSales.filter(t => t.type === 'SALE' && t.payment_status === 'DEBT').length
-
+  const paidCount = storeSales.filter(
+    (t) => (t.type === 'SALE' && t.payment_status === 'PAID') || t.type === 'PAYMENT' || t.type === 'RETURN'
+  ).length
+  const debtCount = storeSales.filter((t) => t.type === 'SALE' && t.payment_status === 'DEBT').length
 
   // Filter sales by store_id (already done server-side, but keeping for safety)
   // const storeSales = allSales.filter(sale => sale.store_id === Number(storeId))
@@ -112,60 +127,59 @@ export const StoreCustomersPage = () => {
   // Handle sales export to Excel
   const handleExportSales = () => {
     if (storeSales.length === 0) {
-      toast.error('Нет данных для экспорта');
-      return;
+      toast.error('Нет данных для экспорта')
+      return
     }
 
     try {
       // Prepare data for export
       const exportData = storeSales.map((sale, index) => ({
         '#': (index + 1).toString(),
-        'Дата': new Date(sale.created_at).toLocaleDateString('ru-RU'),
-        'Клиент': sale.customer_name || '—',
-        'Сумма': Number(sale.total_amount).toFixed(2),
+        Дата: new Date(sale.created_at).toLocaleDateString('ru-RU'),
+        Клиент: sale.customer_name || '—',
+        Сумма: Number(sale.total_amount).toFixed(2),
         'Статус оплаты': sale.payment_status === 'DEBT' ? 'В долг' : 'Оплачено',
-        'Создал': sale.created_by_name || '—',
-      }));
+        Создал: sale.created_by_name || '—',
+      }))
 
       // Add total row
-      const totalSum = storeSales
-        .reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0);
+      const totalSum = storeSales.reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0)
 
       exportData.push({
         '#': 'ИТОГО',
-        'Дата': '',
-        'Клиент': '',
-        'Сумма': totalSum.toFixed(2),
+        Дата: '',
+        Клиент: '',
+        Сумма: totalSum.toFixed(2),
         'Статус оплаты': '',
-        'Создал': '',
-      });
+        Создал: '',
+      })
 
       // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
 
       // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Продажи');
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Продажи')
 
       // Generate filename with timestamp
-      const fileName = `sales_${store.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const fileName = `sales_${store.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
 
       // Export file
-      XLSX.writeFile(workbook, fileName);
+      XLSX.writeFile(workbook, fileName)
 
-      toast.success('Файл успешно экспортирован');
+      toast.success('Файл успешно экспортирован')
     } catch (error) {
-      console.error('Error exporting sales:', error);
-      toast.error('Произошла ошибка при экспорте в Excel');
+      console.error('Error exporting sales:', error)
+      toast.error('Произошла ошибка при экспорте в Excel')
     }
-  };
+  }
 
   const handleCreateExpense = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
 
     if (!amount) {
-      toast.error('Пожалуйста, введите сумму');
-      return;
+      toast.error('Пожалуйста, введите сумму')
+      return
     }
 
     try {
@@ -173,29 +187,29 @@ export const StoreCustomersPage = () => {
         amount: parseFloat(amount),
         store_id: Number(storeId),
         comment: comment || undefined,
-      }).unwrap();
+      }).unwrap()
 
-      toast.success('Расход успешно создан');
-      setAmount('');
-      setComment('');
-      setShowExpenseForm(false);
-      refetchExpenses(); // Refresh expenses list
+      toast.success('Расход успешно создан')
+      setAmount('')
+      setComment('')
+      setShowExpenseForm(false)
+      refetchExpenses() // Refresh expenses list
     } catch (error) {
-      toast.error('Ошибка при создании расхода');
-      console.error(error);
+      toast.error('Ошибка при создании расхода')
+      console.error(error)
     }
-  };
+  }
 
   const handleRecordPayment = async (debtorId: number) => {
     if (!paymentAmount.trim()) {
-      toast.error('Пожалуйста, введите сумму оплаты');
-      return;
+      toast.error('Пожалуйста, введите сумму оплаты')
+      return
     }
 
-    const amount = parseFloat(paymentAmount);
+    const amount = parseFloat(paymentAmount)
     if (isNaN(amount) || amount <= 0) {
-      toast.error('Пожалуйста, введите корректную сумму оплаты');
-      return;
+      toast.error('Пожалуйста, введите корректную сумму оплаты')
+      return
     }
 
     try {
@@ -203,18 +217,18 @@ export const StoreCustomersPage = () => {
         id: debtorId,
         amount: amount,
         description: paymentDescription || undefined,
-      }).unwrap();
+      }).unwrap()
 
-      toast.success('Оплата успешно записана');
-      setShowPaymentModal(false);
-      setPaymentAmount('');
-      setPaymentDescription('');
-      setSelectedDebtorId(null);
+      toast.success('Оплата успешно записана')
+      setShowPaymentModal(false)
+      setPaymentAmount('')
+      setPaymentDescription('')
+      setSelectedDebtorId(null)
     } catch (error) {
-      toast.error('Ошибка при записи оплаты');
-      console.error(error);
+      toast.error('Ошибка при записи оплаты')
+      console.error(error)
     }
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -272,10 +286,16 @@ export const StoreCustomersPage = () => {
               <button
                 onClick={() => setShowCreateCustomerModal(true)}
                 disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете добавлять клиентов только в свой магазин' : ''}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  isAdmin || me?.store_id === Number(storeId)
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                title={
+                  !isAdmin && me?.store_id !== Number(storeId)
+                    ? 'Вы можете добавлять клиентов только в свой магазин'
+                    : ''
+                }
               >
                 <Plus size={16} />
                 Добавить клиента
@@ -316,7 +336,9 @@ export const StoreCustomersPage = () => {
 
                       <div className="flex items-start gap-2">
                         <div className="text-right">
-                          <div className={`text-sm font-medium ${Number(customer.balance) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          <div
+                            className={`text-sm font-medium ${Number(customer.balance) < 0 ? 'text-red-600' : 'text-green-600'}`}
+                          >
                             {Number(customer.balance).toLocaleString()}
                           </div>
                           <div className="text-xs text-slate-500">Баланс</div>
@@ -325,8 +347,8 @@ export const StoreCustomersPage = () => {
                         {/* Edit Icon - Always Visible */}
                         <button
                           onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingCustomerId(customer.id);
+                            e.stopPropagation()
+                            setEditingCustomerId(customer.id)
                           }}
                           className="
                           p-1.5 rounded-lg
@@ -355,10 +377,16 @@ export const StoreCustomersPage = () => {
               <button
                 onClick={() => setShowExpenseForm(!showExpenseForm)}
                 disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете добавлять расходы только в свой магазин' : ''}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  isAdmin || me?.store_id === Number(storeId)
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                title={
+                  !isAdmin && me?.store_id !== Number(storeId)
+                    ? 'Вы можете добавлять расходы только в свой магазин'
+                    : ''
+                }
               >
                 <Plus size={16} />
                 Добавить расход
@@ -376,7 +404,7 @@ export const StoreCustomersPage = () => {
                     className="border border-slate-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Все месяцы</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
                       <option key={month} value={month}>
                         {new Date(2023, month - 1, 1).toLocaleString('ru-RU', { month: 'long' })}
                       </option>
@@ -391,15 +419,17 @@ export const StoreCustomersPage = () => {
                     className="border border-slate-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Все годы</option>
-                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                      <option key={year} value={year}>{year}</option>
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <button
                   onClick={() => {
-                    setSelectedMonth(undefined);
-                    setSelectedYear(undefined);
+                    setSelectedMonth(undefined)
+                    setSelectedYear(undefined)
                   }}
                   className="mt-6 text-sm text-slate-600 hover:text-slate-800"
                 >
@@ -416,14 +446,12 @@ export const StoreCustomersPage = () => {
                   <span className="text-xl font-bold">
                     {expenses
                       .reduce((total, expense) => {
-                        return total + Number(expense.amount || 0);
+                        return total + Number(expense.amount || 0)
                       }, 0)
                       .toFixed(2)}
                   </span>
                 </div>
-                <div className="text-sm text-blue-600">
-                  {expenses.length} операций
-                </div>
+                <div className="text-sm text-blue-600">{expenses.length} операций</div>
               </div>
             </div>
 
@@ -434,9 +462,7 @@ export const StoreCustomersPage = () => {
                 <form onSubmit={handleCreateExpense} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Сумма *
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Сумма *</label>
                       <input
                         type="number"
                         step="0.01"
@@ -448,9 +474,7 @@ export const StoreCustomersPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Комментарий
-                      </label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Комментарий</label>
                       <input
                         type="text"
                         value={comment}
@@ -472,9 +496,9 @@ export const StoreCustomersPage = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setShowExpenseForm(false);
-                        setAmount('');
-                        setComment('');
+                        setShowExpenseForm(false)
+                        setAmount('')
+                        setComment('')
                       }}
                       className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100"
                     >
@@ -486,15 +510,23 @@ export const StoreCustomersPage = () => {
             )}
 
             {expenses.length === 0 ? (
-              <div className="text-center py-10 text-slate-500">У этого магазина нет расходов по выбранным фильтрам</div>
+              <div className="text-center py-10 text-slate-500">
+                У этого магазина нет расходов по выбранным фильтрам
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Дата</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Сумма</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Комментарий</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Дата
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Сумма
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Комментарий
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
@@ -507,15 +539,13 @@ export const StoreCustomersPage = () => {
                             {new Date(expense.expense_date).toLocaleDateString('ru-RU', {
                               day: '2-digit',
                               month: '2-digit',
-                              year: 'numeric'
+                              year: 'numeric',
                             })}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                             {Number(expense.amount).toFixed(2)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-slate-500">
-                            {expense.comment || '—'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-500">{expense.comment || '—'}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -539,7 +569,7 @@ export const StoreCustomersPage = () => {
                     className="border border-slate-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Все месяцы</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
                       <option key={month} value={month}>
                         {new Date(2023, month - 1, 1).toLocaleString('ru-RU', { month: 'long' })}
                       </option>
@@ -554,15 +584,17 @@ export const StoreCustomersPage = () => {
                     className="border border-slate-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Все годы</option>
-                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                      <option key={year} value={year}>{year}</option>
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <button
                   onClick={() => {
-                    setSelectedMonth(undefined);
-                    setSelectedYear(undefined);
+                    setSelectedMonth(undefined)
+                    setSelectedYear(undefined)
                   }}
                   className="mt-6 text-sm text-slate-600 hover:text-slate-800"
                 >
@@ -614,7 +646,6 @@ export const StoreCustomersPage = () => {
                 </div>
               </div>
             </div>
-
           </div>
         ) : activeTab === 'retailDebts' ? (
           /* Retail Debts Tab Content */
@@ -632,9 +663,7 @@ export const StoreCustomersPage = () => {
                       .toFixed(2)}
                   </span>
                 </div>
-                <div className="text-sm text-red-600">
-                  {retailDebtors.length} должник(ов)
-                </div>
+                <div className="text-sm text-red-600">{retailDebtors.length} должник(ов)</div>
               </div>
             </div>
 
@@ -645,28 +674,44 @@ export const StoreCustomersPage = () => {
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Имя клиента</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Телефон</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Общая задолженность</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Оплачено</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Остаток</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Дата создания</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Действия</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Имя клиента
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Телефон
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Общая задолженность
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Оплачено
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Остаток
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Дата создания
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Действия
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {[...retailDebtors]
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .map((debtor) => (
-                        <tr key={debtor.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => {
-                          setSelectedDebtorDetailsId(debtor.id);
-                        }}>
+                        <tr
+                          key={debtor.id}
+                          className="hover:bg-slate-50 cursor-pointer"
+                          onClick={() => {
+                            setSelectedDebtorDetailsId(debtor.id)
+                          }}
+                        >
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                             {debtor.customer_name}
                           </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
-                            {debtor.phone}
-                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{debtor.phone}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                             {Number(debtor.total_debt).toFixed(2)}
                           </td>
@@ -674,7 +719,9 @@ export const StoreCustomersPage = () => {
                             {Number(debtor.total_paid).toFixed(2)}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                            <span className={`px-2 py-1 rounded-full text-xs ${Number(debtor.remaining_balance) > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs ${Number(debtor.remaining_balance) > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}
+                            >
                               {Number(debtor.remaining_balance).toFixed(2)}
                             </span>
                           </td>
@@ -682,15 +729,15 @@ export const StoreCustomersPage = () => {
                             {new Date(debtor.created_at).toLocaleDateString('ru-RU', {
                               day: '2-digit',
                               month: '2-digit',
-                              year: 'numeric'
+                              year: 'numeric',
                             })}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
                             <button
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent row click event
-                                setSelectedDebtorId(debtor.id);
-                                setShowPaymentModal(true);
+                                e.stopPropagation() // Prevent row click event
+                                setSelectedDebtorId(debtor.id)
+                                setShowPaymentModal(true)
                               }}
                               className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
                               disabled={isCreatingRetailPayment}
@@ -722,10 +769,16 @@ export const StoreCustomersPage = () => {
                 <button
                   onClick={() => setShowRetailReturnModal(true)}
                   disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
-                    ? 'bg-orange-600 text-white hover:bg-orange-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                  title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете создавать возвраты только в свой магазин' : ''}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                    isAdmin || me?.store_id === Number(storeId)
+                      ? 'bg-orange-600 text-white hover:bg-orange-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                  title={
+                    !isAdmin && me?.store_id !== Number(storeId)
+                      ? 'Вы можете создавать возвраты только в свой магазин'
+                      : ''
+                  }
                 >
                   <Plus size={16} />
                   Возврат
@@ -733,10 +786,16 @@ export const StoreCustomersPage = () => {
                 <button
                   onClick={() => setShowSalesForm(!showSalesForm)}
                   disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                  title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете создавать продажи только в свой магазин' : ''}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                    isAdmin || me?.store_id === Number(storeId)
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                  title={
+                    !isAdmin && me?.store_id !== Number(storeId)
+                      ? 'Вы можете создавать продажи только в свой магазин'
+                      : ''
+                  }
                 >
                   <Plus size={16} />
                   Создать продажу
@@ -755,7 +814,7 @@ export const StoreCustomersPage = () => {
                     className="border border-slate-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Все дни</option>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                       <option key={day} value={day}>
                         {day}
                       </option>
@@ -770,7 +829,7 @@ export const StoreCustomersPage = () => {
                     className="border border-slate-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Все месяцы</option>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
                       <option key={month} value={month}>
                         {new Date(2023, month - 1, 1).toLocaleString('ru-RU', { month: 'long' })}
                       </option>
@@ -785,16 +844,18 @@ export const StoreCustomersPage = () => {
                     className="border border-slate-300 rounded-lg px-3 py-2"
                   >
                     <option value="">Все годы</option>
-                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                      <option key={year} value={year}>{year}</option>
+                    {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <button
                   onClick={() => {
-                    setSelectedDay(undefined);
-                    setSelectedMonth(undefined);
-                    setSelectedYear(undefined);
+                    setSelectedDay(undefined)
+                    setSelectedMonth(undefined)
+                    setSelectedYear(undefined)
                   }}
                   className="mt-6 text-sm text-slate-600 hover:text-slate-800"
                 >
@@ -810,7 +871,7 @@ export const StoreCustomersPage = () => {
                   <h2 className="text-lg font-semibold text-slate-800">Создать продаж</h2>
                   <button
                     onClick={() => {
-                      setShowSalesForm(false);
+                      setShowSalesForm(false)
                     }}
                     className="text-slate-500 hover:text-slate-700"
                   >
@@ -820,7 +881,7 @@ export const StoreCustomersPage = () => {
                 <StoreSalesForm
                   initialStoreId={Number(storeId)}
                   onClose={() => {
-                    setShowSalesForm(false);
+                    setShowSalesForm(false)
                   }}
                 />
               </div>
@@ -841,9 +902,7 @@ export const StoreCustomersPage = () => {
                 <div className="text-sm text-green-600">
                   {salesCount} продаж
                   <div className="text-xs text-slate-500 mt-1">
-                    Оплачено: {paidCount} |
-                    В долг: {debtCount} |
-                    Оплат: {paymentsAndReturnsCount}
+                    Оплачено: {paidCount} | В долг: {debtCount} | Оплат: {paymentsAndReturnsCount}
                   </div>
                 </div>
               </div>
@@ -860,18 +919,35 @@ export const StoreCustomersPage = () => {
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Дата</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Клиент</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Тип</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Сумма</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Статус</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Склад</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Создал</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Дата
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Клиент
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Тип
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Сумма
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Статус
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Склад
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Создал
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {[...storeSales]
-                      .filter(transaction => transaction.type === 'SALE' || transaction.type === 'PAYMENT' || transaction.type === 'RETURN')
+                      .filter(
+                        (transaction) =>
+                          transaction.type === 'SALE' || transaction.type === 'PAYMENT' || transaction.type === 'RETURN'
+                      )
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .slice(0, 15)
                       .map((transaction) => (
@@ -880,9 +956,9 @@ export const StoreCustomersPage = () => {
                           className="hover:bg-slate-50 cursor-pointer"
                           onClick={() => {
                             // Try to find the sale ID in different possible fields
-                            const saleId = transaction.id || (transaction as any).sale_id || transaction.transaction_id;
+                            const saleId = transaction.id || (transaction as any).sale_id || transaction.transaction_id
                             if (transaction.type === 'SALE' && saleId) {
-                              setSelectedSaleId(saleId);
+                              setSelectedSaleId(saleId)
                             }
                           }}
                         >
@@ -890,7 +966,7 @@ export const StoreCustomersPage = () => {
                             {new Date(transaction.created_at).toLocaleDateString('ru-RU', {
                               day: '2-digit',
                               month: '2-digit',
-                              year: 'numeric'
+                              year: 'numeric',
                             })}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-900">
@@ -900,9 +976,13 @@ export const StoreCustomersPage = () => {
                             {transaction.type === 'SALE' ? (
                               <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">Продажа</span>
                             ) : transaction.type === 'RETURN' ? (
-                              <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">Возврат</span>
+                              <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                                Возврат
+                              </span>
                             ) : (
-                              <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">Оплата</span>
+                              <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                                Оплата
+                              </span>
                             )}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
@@ -910,21 +990,26 @@ export const StoreCustomersPage = () => {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
                             {transaction.payment_status === 'REFUND' ? (
-                              <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">Возврат</span>
+                              <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                                Возврат
+                              </span>
                             ) : transaction.type === 'SALE' ? (
-                              <span className={`px-2 py-1 rounded-full text-xs ${transaction.payment_status === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs ${transaction.payment_status === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}
+                              >
                                 {transaction.payment_status === 'DEBT' ? 'В долг' : 'Оплачено'}
                               </span>
                             ) : (
-                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Оплачено</span>
+                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                Оплачено
+                              </span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm text-slate-500">
-                            {transaction.warehouse_name || (transaction.warehouse_id ? `Склад #${transaction.warehouse_id}` : '—')}
+                            {transaction.warehouse_name ||
+                              (transaction.warehouse_id ? `Склад #${transaction.warehouse_id}` : '—')}
                           </td>
-                          <td className="px-4 py-3 text-sm text-slate-500">
-                            {transaction.created_by_name || '—'}
-                          </td>
+                          <td className="px-4 py-3 text-sm text-slate-500">{transaction.created_by_name || '—'}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -943,14 +1028,20 @@ export const StoreCustomersPage = () => {
               <h3 className="text-lg font-semibold text-slate-800">Оплата по долгам</h3>
               <button
                 onClick={() => {
-                  setShowPaymentModal(false);
-                  setPaymentAmount('');
-                  setPaymentDescription('');
-                  setSelectedDebtorId(null);
+                  setShowPaymentModal(false)
+                  setPaymentAmount('')
+                  setPaymentDescription('')
+                  setSelectedDebtorId(null)
                 }}
                 className="text-slate-500 hover:text-slate-700"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -958,9 +1049,7 @@ export const StoreCustomersPage = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Сумма оплаты *
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Сумма оплаты *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -974,9 +1063,7 @@ export const StoreCustomersPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Описание
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Описание</label>
                 <input
                   type="text"
                   value={paymentDescription}
@@ -998,10 +1085,10 @@ export const StoreCustomersPage = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowPaymentModal(false);
-                    setPaymentAmount('');
-                    setPaymentDescription('');
-                    setSelectedDebtorId(null);
+                    setShowPaymentModal(false)
+                    setPaymentAmount('')
+                    setPaymentDescription('')
+                    setSelectedDebtorId(null)
                   }}
                   className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100"
                 >
@@ -1021,11 +1108,17 @@ export const StoreCustomersPage = () => {
               <h3 className="text-lg font-semibold text-slate-800">Детали должника</h3>
               <button
                 onClick={() => {
-                  setSelectedDebtorDetailsId(null);
+                  setSelectedDebtorDetailsId(null)
                 }}
                 className="text-slate-500 hover:text-slate-700"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1039,19 +1132,17 @@ export const StoreCustomersPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg">
                   <div className="text-center">
                     <div className="text-sm text-slate-500">Общая задолженность</div>
-                    <div className="text-xl font-bold text-red-600">
-                      {Number(debtorDetail.total_debt).toFixed(2)}
-                    </div>
+                    <div className="text-xl font-bold text-red-600">{Number(debtorDetail.total_debt).toFixed(2)}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-sm text-slate-500">Оплачено</div>
-                    <div className="text-xl font-bold text-green-600">
-                      {Number(debtorDetail.total_paid).toFixed(2)}
-                    </div>
+                    <div className="text-xl font-bold text-green-600">{Number(debtorDetail.total_paid).toFixed(2)}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-sm text-slate-500">Остаток</div>
-                    <div className={`text-xl font-bold ${Number(debtorDetail.remaining_balance) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <div
+                      className={`text-xl font-bold ${Number(debtorDetail.remaining_balance) > 0 ? 'text-red-600' : 'text-green-600'}`}
+                    >
                       {Number(debtorDetail.remaining_balance).toFixed(2)}
                     </div>
                   </div>
@@ -1064,17 +1155,27 @@ export const StoreCustomersPage = () => {
                     <table className="min-w-full divide-y divide-slate-200">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Тип</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Сумма</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Описание</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Дата</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Тип
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Сумма
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Описание
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Дата
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-slate-200">
                         {debtorDetail.operations.map((operation) => (
                           <tr key={operation.id} className="hover:bg-slate-50">
                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                              <span className={`px-2 py-1 rounded-full text-xs ${operation.type === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs ${operation.type === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}
+                              >
                                 {operation.type === 'DEBT' ? 'Долг' : 'Оплата'}
                               </span>
                             </td>
@@ -1088,7 +1189,7 @@ export const StoreCustomersPage = () => {
                               {new Date(operation.created_at).toLocaleDateString('ru-RU', {
                                 day: '2-digit',
                                 month: '2-digit',
-                                year: 'numeric'
+                                year: 'numeric',
                               })}
                             </td>
                           </tr>
@@ -1122,9 +1223,9 @@ export const StoreCustomersPage = () => {
           customerId={editingCustomerId}
           storeId={Number(storeId)}
           onClose={() => {
-            setEditingCustomerId(null);
+            setEditingCustomerId(null)
             // Refresh customer data after editing
-            window.location.reload();
+            window.location.reload()
           }}
         />
       )}
@@ -1135,9 +1236,9 @@ export const StoreCustomersPage = () => {
           customerId={null}
           storeId={Number(storeId)}
           onClose={() => {
-            setShowCreateCustomerModal(false);
+            setShowCreateCustomerModal(false)
             // Refresh customer data after creating
-            window.location.reload();
+            window.location.reload()
           }}
         />
       )}
@@ -1172,8 +1273,8 @@ const emptyItem: StoreSaleItem = {
 }
 
 interface StoreSalesFormProps {
-  initialStoreId: number;
-  onClose?: () => void;
+  initialStoreId: number
+  onClose?: () => void
 }
 
 const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
@@ -1185,13 +1286,15 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
   const { data: products = [] } = useGetProductsQuery()
 
   // Refs for keyboard navigation
-  const refs = useRef<{
-    productInputRef: React.MutableRefObject<HTMLInputElement | null>
-    productDropdownRef: React.MutableRefObject<HTMLDivElement | null>
-    quantityRef: React.MutableRefObject<HTMLInputElement | null>
-    priceRef: React.MutableRefObject<HTMLInputElement | null>
-    removeButtonRef: React.MutableRefObject<HTMLButtonElement | null>
-  }[]>([])
+  const refs = useRef<
+    {
+      productInputRef: React.MutableRefObject<HTMLInputElement | null>
+      productDropdownRef: React.MutableRefObject<HTMLDivElement | null>
+      quantityRef: React.MutableRefObject<HTMLInputElement | null>
+      priceRef: React.MutableRefObject<HTMLInputElement | null>
+      removeButtonRef: React.MutableRefObject<HTMLButtonElement | null>
+    }[]
+  >([])
 
   // Initialize refs array
   useEffect(() => {
@@ -1238,12 +1341,12 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       // Validate customer fields for DEBT payments
       if (payment_status === 'DEBT') {
         if (!customerName.trim()) {
-          toast.error('Пожалуйста, введите имя клиента для продажи в долг');
-          return;
+          toast.error('Пожалуйста, введите имя клиента для продажи в долг')
+          return
         }
         if (!phone.trim()) {
-          toast.error('Пожалуйста, введите телефон клиента для продажи в долг');
-          return;
+          toast.error('Пожалуйста, введите телефон клиента для продажи в долг')
+          return
         }
       }
 
@@ -1254,7 +1357,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
         phone: payment_status === 'DEBT' ? phone : undefined,
         items: items.map((item) => {
           // Find the product to get its product_code
-          const product = products.find(p => p.id === item.product_id);
+          const product = products.find((p) => p.id === item.product_id)
           return {
             product_id: item.product_id,
             quantity: item.quantity,
@@ -1272,7 +1375,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
 
       // Close the form if onClose is provided
       if (onClose) {
-        onClose();
+        onClose()
       }
     } catch (error) {
       toast.error('Ошибка при создании продажи')
@@ -1319,29 +1422,37 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
   const getFilteredProducts = (searchTerm: string) => {
     if (!searchTerm) return products
     const lowerSearchTerm = searchTerm.toLowerCase()
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(lowerSearchTerm) ||
-      (p.product_code && p.product_code.toLowerCase().includes(lowerSearchTerm))
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(lowerSearchTerm) ||
+        (p.product_code && p.product_code.toLowerCase().includes(lowerSearchTerm))
     )
   }
 
   // Handle product selection
-  const handleProductSelect = (productId: number, productName: string, productCode: string | null, rowIndex: number) => {
+  const handleProductSelect = (
+    productId: number,
+    productName: string,
+    productCode: string | null,
+    rowIndex: number
+  ) => {
     // Find the selected product to get its sales price
-    const selectedProduct = products.find(p => p.id === productId);
+    const selectedProduct = products.find((p) => p.id === productId)
 
     // Set the selected product with auto-populated sales price
     updateItem(rowIndex, {
       product_id: productId,
       product_name: productName,
       product_code: productCode || undefined,
-      unit_price: selectedProduct ? Number(selectedProduct.selling_price) : 0
+      unit_price: selectedProduct ? Number(selectedProduct.selling_price) : 0,
     })
     setTimeout(() => {
       refs.current[rowIndex]?.quantityRef.current?.focus()
     }, 0)
   }
+  const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
 
+  const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price || 0), 0)
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
       <div className="mb-4">
@@ -1360,9 +1471,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       {payment_status === 'DEBT' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Имя клиента *
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Имя клиента *</label>
             <input
               type="text"
               value={customerName}
@@ -1372,9 +1481,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Телефон клиента *
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Телефон клиента *</label>
             <input
               type="text"
               value={phone}
@@ -1405,7 +1512,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                 <input
                   ref={(el) => {
                     if (refs.current[i]) {
-                      refs.current[i].productInputRef.current = el;
+                      refs.current[i].productInputRef.current = el
                     }
                   }}
                   type="text"
@@ -1421,7 +1528,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                   <div
                     ref={(el) => {
                       if (refs.current[i]) {
-                        refs.current[i].productDropdownRef.current = el;
+                        refs.current[i].productDropdownRef.current = el
                       }
                     }}
                     className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto"
@@ -1442,9 +1549,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
 
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
-                <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">
-                  {item.product_code || '—'}
-                </div>
+                <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">{item.product_code || '—'}</div>
               </div>
 
               <div className="col-span-6 lg:col-span-2">
@@ -1452,7 +1557,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                 <input
                   ref={(el) => {
                     if (refs.current[i]) {
-                      refs.current[i].quantityRef.current = el;
+                      refs.current[i].quantityRef.current = el
                     }
                   }}
                   type="text"
@@ -1460,10 +1565,10 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                   pattern="[0-9]*"
                   value={item.quantity === 0 ? '' : item.quantity}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/^0+/, '') || '0';
-                    const numValue = Number(value);
+                    const value = e.target.value.replace(/^0+/, '') || '0'
+                    const numValue = Number(value)
                     if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { quantity: numValue });
+                      updateItem(i, { quantity: numValue })
                     }
                   }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
@@ -1476,7 +1581,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                 <input
                   ref={(el) => {
                     if (refs.current[i]) {
-                      refs.current[i].priceRef.current = el;
+                      refs.current[i].priceRef.current = el
                     }
                   }}
                   type="text"
@@ -1484,17 +1589,17 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                   pattern="[0-9]*(.[0-9]+)?"
                   value={item.unit_price === 0 ? '' : item.unit_price}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/^0+(?=\d)/, '');
-                    const numValue = Number(value);
+                    const value = e.target.value.replace(/^0+(?=\d)/, '')
+                    const numValue = Number(value)
                     if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { unit_price: numValue });
+                      updateItem(i, { unit_price: numValue })
                     }
                   }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'price')}
                   onFocus={() => {
                     // Add a new row when this input gets focus in the last row
                     if (i === items.length - 1) {
-                      addItem();
+                      addItem()
                     }
                   }}
                   className="w-full border rounded-lg px-3 py-2.5"
@@ -1512,7 +1617,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                   <button
                     ref={(el) => {
                       if (refs.current[i]) {
-                        refs.current[i].removeButtonRef.current = el;
+                        refs.current[i].removeButtonRef.current = el
                       }
                     }}
                     onClick={() => removeItem(i)}
@@ -1525,6 +1630,13 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
             </div>
           )
         })}
+        <div className="mt-4 bg-gray-50 border rounded-xl p-4">
+          <div className="grid grid-cols-12 gap-4 items-center">
+            <div className="col-span-6 lg:col-span-7 text-right font-semibold text-gray-700">Итого:</div>
+
+            <div className="col-span-3 lg:col-span-3 text-right font-bold text-lg">{totalAmount.toLocaleString()}</div>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -1539,6 +1651,6 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       </div>
     </div>
   )
-};
+}
 
 export default StoreCustomersPage

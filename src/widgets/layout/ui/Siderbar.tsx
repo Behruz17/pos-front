@@ -74,6 +74,7 @@ const Sidebar = ({ sidebarOpen, toggleSidebar }: Props) => {
     await logount().unwrap()
     Cookie.remove('token')
     navigate(paths.auth(), { replace: true })
+    window.location.reload()
   }
 
   if (!isAuth) return null
@@ -106,7 +107,10 @@ const Sidebar = ({ sidebarOpen, toggleSidebar }: Props) => {
         </button>
       </div>
 
-      <div className="mt-6 overflow-y-auto max-h-[calc(100vh-180px)] [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div
+        className="mt-6 overflow-y-auto max-h-[calc(100vh-180px)] [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         <nav className="space-y-1">
           {navigation.map(({ to, label, icon: Icon }) => (
             <NavLink
