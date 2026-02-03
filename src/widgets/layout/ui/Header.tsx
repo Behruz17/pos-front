@@ -15,11 +15,11 @@ export const Header = ({ toggleSidebar }: { toggleSidebar: () => void }) => {
       </button>
       <div className="flex items-center gap-4 ml-auto">
         <div className="text-right">
-          <p className="text-sm font-semibold text-gray-800">{me.name}</p>
+          <p className="text-sm font-semibold text-gray-800">{me.name || me.login}</p>
           <p className="text-xs text-gray-600 capitalize">{me.role === 'ADMIN' ? 'Администратор' : 'Пользователь'}</p>
         </div>
         <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-          {me.name.charAt(0).toUpperCase()}
+          {(me.name || me.login).charAt(0).toUpperCase()}
         </div>
       </div>
     </header>

@@ -4,7 +4,7 @@ export const getMeDtoSchema = z.object({
   id: z.number(),
   login: z.string(),
 
-  name: z.string(),
+  name: z.string().nullable(),
   role: z.enum(['ADMIN', 'USER']),
   store_id: z.number().nullable().optional(),
 })

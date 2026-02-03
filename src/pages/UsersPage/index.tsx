@@ -10,11 +10,11 @@ import { Trash2, User, Shield } from 'lucide-react'
 import { useNavigate } from 'react-router'
 
 const UsersPage = () => {
-  const { data: users, isLoading } = useGetUsersQuery()
+  const { data: users, isLoading, isError, error } = useGetUsersQuery()
   const [deleteUser] = useDeleteUserMutation()
   const navigate = useNavigate()
   const { isAdmin, me } = useAuth()
-  const { data: stores = []} = useGetStoresQuery()
+  const { data: stores = [] } = useGetStoresQuery()
   const onDelete = async (id?: number) => {
     if (!id) return
     await deleteUser(id).unwrap()
@@ -30,9 +30,18 @@ const UsersPage = () => {
   if (!isAdmin) {
     navigate(paths.home())
   }
-  
+
 
   if (isLoading) return <Loading text="работников" />
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center text-red-600">
+        Ошибка при загрузке пользователей: {JSON.stringify(error)}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 max-w-5xl">
       <div className="flex items-center justify-between">
@@ -99,7 +108,7 @@ const UsersPage = () => {
                     <div>
                       <div className="font-medium text-slate-800">{u.name}</div>
                       <div className="text-xs text-slate-500 font-mono">{u.login}</div>
-                      
+
                     </div>
                   </div>
 

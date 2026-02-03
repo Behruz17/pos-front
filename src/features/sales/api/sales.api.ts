@@ -36,11 +36,18 @@ const salesApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Sales'],
     }),
-    getRetailDebtors: build.query<TRetailDebtor[], void>({
-      query: () => ({
-        url: '/retail-debtors',
-        method: 'GET',
-      }),
+    getRetailDebtors: build.query<TRetailDebtor[], { store_id?: number } | void>({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params && params.store_id) {
+          searchParams.append('store_id', params.store_id.toString());
+        }
+        const queryString = searchParams.toString();
+        return {
+          url: `/retail-debtors${queryString ? `?${queryString}` : ''}`,
+          method: 'GET',
+        };
+      },
       providesTags: ['RetailDebtors'],
     }),
     createRetailDebtorPayment: build.mutation<TRetailDebtorPayment, { id: number; amount: number; description?: string }>({

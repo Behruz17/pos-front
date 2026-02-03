@@ -34,8 +34,8 @@ export const StoreCustomersPage = () => {
   const [selectedDay, setSelectedDay] = useState<number | undefined>(new Date().getDate())
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear())
-   const { me,isAdmin } = useAuth()
-   
+  const { me, isAdmin } = useAuth()
+
   const { data, isLoading, isError } = useGetStoreCustomersQuery(Number(storeId))
   const { data: expenses = [], isLoading: isExpensesLoading, refetch: refetchExpenses } = useGetExpensesQuery({
     store_id: Number(storeId),
@@ -48,26 +48,26 @@ export const StoreCustomersPage = () => {
     month: selectedMonth,
     year: selectedYear,
   };
-  
+
   const { data: storeSales = [], isLoading: isSalesLoading, refetch: refetchSales } = useGetSalesQuery(salesQueryParams)
-  const { data: retailDebtors = [], isLoading: isRetailDebtorsLoading } = useGetRetailDebtorsQuery()
+  const { data: retailDebtors = [], isLoading: isRetailDebtorsLoading } = useGetRetailDebtorsQuery({ store_id: Number(storeId) })
   const [createRetailDebtorPayment, { isLoading: isCreatingRetailPayment }] = useCreateRetailDebtorPaymentMutation()
-  
+
   // State for payment modal
   const [selectedDebtorId, setSelectedDebtorId] = useState<number | null>(null)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDescription, setPaymentDescription] = useState('')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  
+
   // State for debtor details
   const [selectedDebtorDetailsId, setSelectedDebtorDetailsId] = useState<number | null>(null)
   const { data: debtorDetail, isLoading: isDebtorDetailLoading } = useGetRetailDebtorDetailQuery(selectedDebtorDetailsId || skipToken)
-  
+
   // State for sale details
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null)
-  
+
   const [createExpense, { isLoading: isCreating }] = useCreateExpenseMutation()
-  
+
   // Fetch financial summary data
   const { data: financialSummary, isLoading: isFinancialSummaryLoading } = useGetStoreFinancialSummaryQuery({
     storeId: Number(storeId),
@@ -115,7 +115,7 @@ export const StoreCustomersPage = () => {
       toast.error('Нет данных для экспорта');
       return;
     }
-    
+
     try {
       // Prepare data for export
       const exportData = storeSales.map((sale, index) => ({
@@ -126,11 +126,11 @@ export const StoreCustomersPage = () => {
         'Статус оплаты': sale.payment_status === 'DEBT' ? 'В долг' : 'Оплачено',
         'Создал': sale.created_by_name || '—',
       }));
-      
+
       // Add total row
       const totalSum = storeSales
         .reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0);
-      
+
       exportData.push({
         '#': 'ИТОГО',
         'Дата': '',
@@ -139,20 +139,20 @@ export const StoreCustomersPage = () => {
         'Статус оплаты': '',
         'Создал': '',
       });
-      
+
       // Create worksheet
       const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
+
       // Create workbook
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Продажи');
-      
+
       // Generate filename with timestamp
       const fileName = `sales_${store.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+
       // Export file
       XLSX.writeFile(workbook, fileName);
-      
+
       toast.success('Файл успешно экспортирован');
     } catch (error) {
       console.error('Error exporting sales:', error);
@@ -162,19 +162,19 @@ export const StoreCustomersPage = () => {
 
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!amount) {
       toast.error('Пожалуйста, введите сумму');
       return;
     }
-    
+
     try {
       await createExpense({
         amount: parseFloat(amount),
         store_id: Number(storeId),
         comment: comment || undefined,
       }).unwrap();
-      
+
       toast.success('Расход успешно создан');
       setAmount('');
       setComment('');
@@ -219,7 +219,7 @@ export const StoreCustomersPage = () => {
   return (
     <div className="space-y-6">
       <ButtonBack onBack={() => navigate(-1)} />
-      
+
       <div>
         <h1 className="text-xl font-semibold text-slate-800">{store.name}</h1>
         <p className="text-sm text-slate-500">Управление магазином</p>
@@ -269,11 +269,11 @@ export const StoreCustomersPage = () => {
           <>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Клиенты магазина</h3>
-              <button 
+              <button
                 onClick={() => setShowCreateCustomerModal(true)}
                 disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
-                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                 title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете добавлять клиентов только в свой магазин' : ''}
               >
@@ -281,54 +281,54 @@ export const StoreCustomersPage = () => {
                 Добавить клиента
               </button>
             </div>
-            
+
             {customers.length === 0 ? (
               <div className="text-center py-10 text-slate-500">В этом магазине пока нет клиентов</div>
             ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {customers.map((customer) => (
-                <div 
-                  key={customer.id} 
-                  className="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors cursor-pointer relative"
-                  onClick={() => storeId && navigate(paths.customerSales(customer.id.toString(), storeId))}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-slate-100 rounded-lg">
-                          <Package size={18} className="text-slate-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-slate-800">{customer.full_name}</h3>
-                          <div className="flex items-center gap-4 mt-1 text-sm text-slate-600">
-                            <div className="flex items-center gap-1">
-                              <Phone size={14} />
-                              <span>{customer.phone}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin size={14} />
-                              <span>{customer.city}</span>
+              <div className="grid grid-cols-1 gap-4">
+                {customers.map((customer) => (
+                  <div
+                    key={customer.id}
+                    className="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors cursor-pointer relative"
+                    onClick={() => storeId && navigate(paths.customerSales(customer.id.toString(), storeId))}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-slate-100 rounded-lg">
+                            <Package size={18} className="text-slate-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-slate-800">{customer.full_name}</h3>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-slate-600">
+                              <div className="flex items-center gap-1">
+                                <Phone size={14} />
+                                <span>{customer.phone}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin size={14} />
+                                <span>{customer.city}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-start gap-2">
-                      <div className="text-right">
-                        <div className={`text-sm font-medium ${Number(customer.balance) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {Number(customer.balance).toLocaleString()}
+
+                      <div className="flex items-start gap-2">
+                        <div className="text-right">
+                          <div className={`text-sm font-medium ${Number(customer.balance) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {Number(customer.balance).toLocaleString()}
+                          </div>
+                          <div className="text-xs text-slate-500">Баланс</div>
                         </div>
-                        <div className="text-xs text-slate-500">Баланс</div>
-                      </div>
-                      
-                      {/* Edit Icon - Always Visible */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingCustomerId(customer.id);
-                        }}
-                        className="
+
+                        {/* Edit Icon - Always Visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCustomerId(customer.id);
+                          }}
+                          className="
                           p-1.5 rounded-lg
                           bg-white border border-slate-200
                           text-slate-400 hover:text-blue-600 hover:border-blue-500
@@ -336,15 +336,15 @@ export const StoreCustomersPage = () => {
                           focus:outline-none focus:ring-2 focus:ring-blue-500
                           self-start mt-1
                         "
-                        title="Редактировать клиента"
-                      >
-                        <Pencil size={14} />
-                      </button>
+                          title="Редактировать клиента"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
             )}
           </>
         ) : activeTab === 'expenses' ? (
@@ -352,11 +352,11 @@ export const StoreCustomersPage = () => {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Расходы магазина</h3>
-              <button 
+              <button
                 onClick={() => setShowExpenseForm(!showExpenseForm)}
                 disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
-                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                 title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете добавлять расходы только в свой магазин' : ''}
               >
@@ -364,7 +364,7 @@ export const StoreCustomersPage = () => {
                 Добавить расход
               </button>
             </div>
-            
+
             {/* Filters */}
             <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
               <div className="flex flex-wrap gap-4 items-center">
@@ -396,7 +396,7 @@ export const StoreCustomersPage = () => {
                     ))}
                   </select>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setSelectedMonth(undefined);
                     setSelectedYear(undefined);
@@ -407,7 +407,7 @@ export const StoreCustomersPage = () => {
                 </button>
               </div>
             </div>
-            
+
             {/* Total Expenses Summary */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
@@ -426,7 +426,7 @@ export const StoreCustomersPage = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Expense Creation Form */}
             {showExpenseForm && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6">
@@ -484,7 +484,7 @@ export const StoreCustomersPage = () => {
                 </form>
               </div>
             )}
-            
+
             {expenses.length === 0 ? (
               <div className="text-center py-10 text-slate-500">У этого магазина нет расходов по выбранным фильтрам</div>
             ) : (
@@ -527,7 +527,7 @@ export const StoreCustomersPage = () => {
           /* Statistics Tab Content */
           <div>
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Статистика магазина</h3>
-            
+
             {/* Filters */}
             <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
               <div className="flex flex-wrap gap-4 items-center">
@@ -559,7 +559,7 @@ export const StoreCustomersPage = () => {
                     ))}
                   </select>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setSelectedMonth(undefined);
                     setSelectedYear(undefined);
@@ -570,7 +570,7 @@ export const StoreCustomersPage = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
                 <div className="flex items-center gap-3">
@@ -585,7 +585,7 @@ export const StoreCustomersPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-green-50 border border-green-200 rounded-xl p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-green-100 rounded-lg">
@@ -599,7 +599,7 @@ export const StoreCustomersPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-purple-100 rounded-lg">
@@ -620,7 +620,7 @@ export const StoreCustomersPage = () => {
           /* Retail Debts Tab Content */
           <div>
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Долги в розницу</h3>
-            
+
             {/* Total Remaining Balance Summary */}
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
@@ -637,7 +637,7 @@ export const StoreCustomersPage = () => {
                 </div>
               </div>
             </div>
-            
+
             {retailDebtors.length === 0 ? (
               <div className="text-center py-10 text-slate-500">Нет розничных должников</div>
             ) : (
@@ -712,29 +712,29 @@ export const StoreCustomersPage = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Продажи магазина</h3>
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={handleExportSales}
                   className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
                 >
                   <Download size={16} />
                   Экспорт в Excel
                 </button>
-                <button 
+                <button
                   onClick={() => setShowRetailReturnModal(true)}
                   disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
-                    ? 'bg-orange-600 text-white hover:bg-orange-700' 
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
+                    ? 'bg-orange-600 text-white hover:bg-orange-700'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                   title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете создавать возвраты только в свой магазин' : ''}
                 >
                   <Plus size={16} />
                   Возврат
                 </button>
-                <button 
+                <button
                   onClick={() => setShowSalesForm(!showSalesForm)}
                   disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId) 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                   title={!isAdmin && me?.store_id !== Number(storeId) ? 'Вы можете создавать продажи только в свой магазин' : ''}
                 >
@@ -743,7 +743,7 @@ export const StoreCustomersPage = () => {
                 </button>
               </div>
             </div>
-            
+
             {/* Filters */}
             <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
               <div className="flex flex-wrap gap-4 items-center">
@@ -790,7 +790,7 @@ export const StoreCustomersPage = () => {
                     ))}
                   </select>
                 </div>
-                <button 
+                <button
                   onClick={() => {
                     setSelectedDay(undefined);
                     setSelectedMonth(undefined);
@@ -802,13 +802,13 @@ export const StoreCustomersPage = () => {
                 </button>
               </div>
             </div>
-            
+
             {/* Sales Form */}
             {showSalesForm && (
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-semibold text-slate-800">Создать продаж</h2>
-                  <button 
+                  <button
                     onClick={() => {
                       setShowSalesForm(false);
                     }}
@@ -817,15 +817,15 @@ export const StoreCustomersPage = () => {
                     Закрыть
                   </button>
                 </div>
-                <StoreSalesForm 
-                  initialStoreId={Number(storeId)} 
+                <StoreSalesForm
+                  initialStoreId={Number(storeId)}
                   onClose={() => {
                     setShowSalesForm(false);
                   }}
                 />
               </div>
             )}
-            
+
             {/* Total Sales Summary */}
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
@@ -841,14 +841,14 @@ export const StoreCustomersPage = () => {
                 <div className="text-sm text-green-600">
                   {salesCount} продаж
                   <div className="text-xs text-slate-500 mt-1">
-                    Оплачено: {paidCount} | 
-                    В долг: {debtCount} | 
+                    Оплачено: {paidCount} |
+                    В долг: {debtCount} |
                     Оплат: {paymentsAndReturnsCount}
                   </div>
                 </div>
               </div>
             </div>
-            
+
             {storeSales.length === 0 ? (
               <div className="text-center py-10 text-slate-500">
                 {selectedDay || selectedMonth || selectedYear
@@ -875,8 +875,8 @@ export const StoreCustomersPage = () => {
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .slice(0, 15)
                       .map((transaction) => (
-                        <tr 
-                          key={transaction.transaction_id} 
+                        <tr
+                          key={transaction.transaction_id}
                           className="hover:bg-slate-50 cursor-pointer"
                           onClick={() => {
                             // Try to find the sale ID in different possible fields
@@ -934,14 +934,14 @@ export const StoreCustomersPage = () => {
           </div>
         )}
       </div>
-      
+
       {/* Payment Modal */}
       {showPaymentModal && selectedDebtorId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Оплата по долгам</h3>
-              <button 
+              <button
                 onClick={() => {
                   setShowPaymentModal(false);
                   setPaymentAmount('');
@@ -955,7 +955,7 @@ export const StoreCustomersPage = () => {
                 </svg>
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -972,7 +972,7 @@ export const StoreCustomersPage = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Описание
@@ -985,7 +985,7 @@ export const StoreCustomersPage = () => {
                   placeholder="Введите описание оплаты"
                 />
               </div>
-              
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -1019,7 +1019,7 @@ export const StoreCustomersPage = () => {
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Детали должника</h3>
-              <button 
+              <button
                 onClick={() => {
                   setSelectedDebtorDetailsId(null);
                 }}
@@ -1030,7 +1030,7 @@ export const StoreCustomersPage = () => {
                 </svg>
               </button>
             </div>
-            
+
             {isDebtorDetailLoading ? (
               <div className="flex justify-center py-10 text-slate-500">Загрузка информации...</div>
             ) : debtorDetail ? (
@@ -1096,7 +1096,7 @@ export const StoreCustomersPage = () => {
                       </tbody>
                     </table>
                   </div>
-                  
+
                   {debtorDetail.operations.length === 0 && (
                     <div className="text-center py-10 text-slate-500">Нет операций для этого должника</div>
                   )}
@@ -1128,7 +1128,7 @@ export const StoreCustomersPage = () => {
           }}
         />
       )}
-      
+
       {/* Customer Create Modal */}
       {showCreateCustomerModal && (
         <CustomerFormModal
@@ -1269,7 +1269,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       setItems([emptyItem])
       setCustomerName('')
       setPhone('')
-      
+
       // Close the form if onClose is provided
       if (onClose) {
         onClose();
@@ -1319,8 +1319,8 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
   const getFilteredProducts = (searchTerm: string) => {
     if (!searchTerm) return products
     const lowerSearchTerm = searchTerm.toLowerCase()
-    return products.filter((p) => 
-      p.name.toLowerCase().includes(lowerSearchTerm) || 
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(lowerSearchTerm) ||
       (p.product_code && p.product_code.toLowerCase().includes(lowerSearchTerm))
     )
   }
@@ -1329,10 +1329,10 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
   const handleProductSelect = (productId: number, productName: string, productCode: string | null, rowIndex: number) => {
     // Find the selected product to get its sales price
     const selectedProduct = products.find(p => p.id === productId);
-    
+
     // Set the selected product with auto-populated sales price
-    updateItem(rowIndex, { 
-      product_id: productId, 
+    updateItem(rowIndex, {
+      product_id: productId,
       product_name: productName,
       product_code: productCode || undefined,
       unit_price: selectedProduct ? Number(selectedProduct.selling_price) : 0

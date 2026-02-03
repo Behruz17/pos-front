@@ -38,7 +38,7 @@ export const CreateRetailReturnModal = ({
 }) => {
   const { data: products = [] } = useGetProductsQuery()
   const { data: stores = [] } = useGetStoresQuery()
-  const { data: retailDebtors = [] } = useGetRetailDebtorsQuery()
+  const { data: retailDebtors = [] } = useGetRetailDebtorsQuery({ store_id: storeId })
   const [createRetailCashReturn, { isLoading: isCashLoading }] = useCreateRetailCashReturnMutation()
   const [createRetailDebtReturn, { isLoading: isDebtLoading }] = useCreateRetailDebtReturnMutation()
 
