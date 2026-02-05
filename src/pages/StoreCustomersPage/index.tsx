@@ -286,11 +286,10 @@ export const StoreCustomersPage = () => {
               <button
                 onClick={() => setShowCreateCustomerModal(true)}
                 disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                  isAdmin || me?.store_id === Number(storeId)
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                  }`}
                 title={
                   !isAdmin && me?.store_id !== Number(storeId)
                     ? 'Вы можете добавлять клиентов только в свой магазин'
@@ -377,11 +376,10 @@ export const StoreCustomersPage = () => {
               <button
                 onClick={() => setShowExpenseForm(!showExpenseForm)}
                 disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                  isAdmin || me?.store_id === Number(storeId)
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                  }`}
                 title={
                   !isAdmin && me?.store_id !== Number(storeId)
                     ? 'Вы можете добавлять расходы только в свой магазин'
@@ -769,11 +767,10 @@ export const StoreCustomersPage = () => {
                 <button
                   onClick={() => setShowRetailReturnModal(true)}
                   disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                    isAdmin || me?.store_id === Number(storeId)
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
                       ? 'bg-orange-600 text-white hover:bg-orange-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                    }`}
                   title={
                     !isAdmin && me?.store_id !== Number(storeId)
                       ? 'Вы можете создавать возвраты только в свой магазин'
@@ -786,11 +783,10 @@ export const StoreCustomersPage = () => {
                 <button
                   onClick={() => setShowSalesForm(!showSalesForm)}
                   disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                    isAdmin || me?.store_id === Number(storeId)
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                    }`}
                   title={
                     !isAdmin && me?.store_id !== Number(storeId)
                       ? 'Вы можете создавать продажи только в свой магазин'
@@ -1450,7 +1446,7 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       refs.current[rowIndex]?.quantityRef.current?.focus()
     }, 0)
   }
-  const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
+  // const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
 
   const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price || 0), 0)
   return (

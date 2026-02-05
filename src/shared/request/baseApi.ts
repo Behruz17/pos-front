@@ -7,7 +7,7 @@ import {
 } from '@reduxjs/toolkit/query/react'
 import Cookie from 'js-cookie'
 import { env } from '../env'
-import { errorHandler } from './errorHandler'
+// import { errorHandler } from './errorHandler'
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: env.VITE_BASE_SERVER_URL,
