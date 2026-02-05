@@ -1,3 +1,4 @@
+import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { useGetWarehouseProductsDetailQuery } from '@/features/warehouses/api/warehouses.api'
 import { formatDateTime } from '@/shared/formatDateTime'
 import ButtonBack from '@/shared/ui/ButtonBack'
@@ -25,7 +26,7 @@ export const ProductCard = ({
   const [editOpen, setEditOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
   const [editProduct, setEditProduct] = useState(false)
-
+  const { isAdmin } = useAuth()
   if (isLoading) {
     return <div className="text-sm text-slate-500">Загрузка товара…</div>
   }
@@ -113,15 +114,19 @@ export const ProductCard = ({
               <ActionButton
                 icon={<Edit2 size={16} />}
                 label="Редактировать остаток"
-                onClick={() => setEditOpen(true)}
+                onClick={() => isAdmin && setEditOpen(true)}
               />
 
-              <ActionButton icon={<Move size={16} />} label="Переместить" onClick={() => setMoveOpen(true)} />
+              <ActionButton
+                icon={<Move size={16} />}
+                label="Переместить"
+                onClick={() => isAdmin && setMoveOpen(true)}
+              />
 
               <ActionButton
                 icon={<Edit size={16} />}
                 label="Редактировать продукт"
-                onClick={() => setEditProduct(true)}
+                onClick={() => isAdmin && setEditProduct(true)}
               />
             </div>
           </div>

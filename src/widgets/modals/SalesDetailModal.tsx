@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { X, Package, Hash, Calendar, User, Coins } from 'lucide-react';
+import { X, Package, Hash, Calendar, User, Coins, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Loading } from '@/shared/ui/Loading';
 
 
@@ -49,6 +50,60 @@ export const SalesDetailModal = ({
     };
   }, [isOpen, onClose]);
 
+  // Export to Excel function
+  const exportToExcel = () => {
+    if (!saleData) return;
+    
+    // Create worksheet data
+    const headers = ['Товар', 'Артикул', 'Количество', 'Цена за единицу', 'Общая сумма'];
+    
+    // Header information
+    const headerData = [
+      [`Детали продажи #${saleId}`, '', '', '', ''],
+      [`Клиент: ${saleData.customer_name || '—'}`, '', '', '', ''],
+      [`Дата: ${new Date(saleData.created_at).toLocaleDateString('ru-RU')}`, '', '', '', ''],
+      [`Статус оплаты: ${saleData.payment_status === 'DEBT' ? 'В долг' : 'Оплачено'}`, '', '', '', ''],
+      ['', '', '', '', ''],
+      headers
+    ];
+    
+    // Items data
+    const itemsData = saleData.items.map(item => [
+      item.product_name,
+      item.product_code || '',
+      item.quantity,
+      item.unit_price,
+      item.total_price
+    ]);
+    
+    // Summary row
+    const summaryData = [
+      ['', '', '', 'Итого:', saleData.total_amount]
+    ];
+    
+    // Combine all data
+    const worksheetData = [...headerData, ...itemsData, ...summaryData];
+    
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 25 }, // Товар
+      { wch: 15 }, // Артикул
+      { wch: 12 }, // Количество
+      { wch: 15 }, // Цена за единицу
+      { wch: 15 }  // Общая сумма
+    ];
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Детали продажи');
+    
+    // Export to Excel file
+    XLSX.writeFile(wb, `sale_${saleId}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -61,6 +116,15 @@ export const SalesDetailModal = ({
             <h2 className="text-xl font-semibold text-slate-800">
               Детали продажи #{saleId}
             </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            >
+              <Download size={18} />
+              <span>Экспорт в Excel</span>
+            </button>
           </div>
           <button
             onClick={onClose}
@@ -78,7 +142,7 @@ export const SalesDetailModal = ({
           <div className="flex-1 flex items-center justify-center p-6 text-red-500">
             <div className="text-center">
               <p className="font-medium">Ошибка загрузки данных:</p>
-              <p className="mt-1">{(error as any)?.data?.message || 'Произошла ошибка при загрузке данных'}</p>
+              <p className="mt-1">{(error as { data?: { message?: string } })?.data?.message || 'Произошла ошибка при загрузке данных'}</p>
             </div>
           </div>
         ) : saleData ? (

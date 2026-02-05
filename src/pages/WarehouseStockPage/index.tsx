@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Warehouses } from './Warehouses'
 import { WarehouseProducts } from './WarehouseProducts'
 import { ProductCard } from './ProductCard'
+import { useAuth } from '@/features/auth/hooks/auth.hooks'
 
 const WarehouseStockPage = () => {
   const [warehouseId, setWarehouseId] = useState<number | null>(null)
