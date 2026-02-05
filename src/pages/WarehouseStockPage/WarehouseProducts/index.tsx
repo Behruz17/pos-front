@@ -360,7 +360,7 @@ export const WarehouseProducts = ({
                       <tr 
                         key={supplier.id} 
                         className="border-t hover:bg-slate-50 transition cursor-pointer"
-                        onClick={() => setSelectedSupplier({id: supplier.id, name: supplier.name})}
+                        onClick={() =>  setSelectedSupplier({id: supplier.id, name: supplier.name})}
                       >
                         <Td>
                           <div className="font-medium text-slate-800">{supplier.name}</div>
@@ -474,7 +474,7 @@ export const WarehouseProducts = ({
               </div>
             </div>
             <button
-              onClick={() => setShowPaymentModal(true)}
+              onClick={() =>isAdmin && setShowPaymentModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
             >
               <DollarSign size={16} />

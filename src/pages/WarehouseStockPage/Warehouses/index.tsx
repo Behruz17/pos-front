@@ -80,7 +80,7 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
         {warehouses.map((w) => (
           <button
             key={w.id}
-            onClick={() => isAdmin && onSelect(w.id)}
+            onClick={() =>onSelect(w.id)}
             className="
                 cursor-pointer
                 group relative rounded-xl sm:rounded-2xl
