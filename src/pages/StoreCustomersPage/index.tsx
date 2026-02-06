@@ -1581,12 +1581,11 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                     }
                   }}
                   type="text"
-                  inputMode="decimal"
                   pattern="[0-9]*(.[0-9]+)?"
                   value={item.unit_price === 0 ? '' : item.unit_price}
                   onChange={(e) => {
                     const value = e.target.value.replace(/^0+(?=\d)/, '')
-                    const numValue = Number(value)
+                    const numValue = value as any
                     if (!isNaN(numValue) && numValue >= 0) {
                       updateItem(i, { unit_price: numValue })
                     }
