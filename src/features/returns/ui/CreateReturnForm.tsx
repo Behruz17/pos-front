@@ -335,7 +335,7 @@ export const CreateReturnForm = () => {
                   onFocus={() => {
                     // Add a new row when this input gets focus if it's the last row
                     if (i === items.length - 1) {
-                      addItem();
+                      addItem()
                     }
                   }}
                   className="w-full border rounded-lg px-3 py-2.5"

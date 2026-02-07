@@ -16,18 +16,18 @@ export const CustomerSalesPage = () => {
   const [showSalesForm, setShowSalesForm] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showCreateReturnModal, setShowCreateReturnModal] = useState(false)
-  const [selectedOperation, setSelectedOperation] = useState<typeof sales[0] | null>(null)
+  const [selectedOperation, setSelectedOperation] = useState<(typeof sales)[0] | null>(null)
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear())
   const [selectedType, setSelectedType] = useState<'PAID' | 'DEBT' | 'PAYMENT' | 'RETURN' | undefined>(undefined)
-  
-  const { data, isLoading, isError } = useGetCustomerOperationsQuery({ 
+
+  const { data, isLoading, isError } = useGetCustomerOperationsQuery({
     customerId: Number(customerId),
     store_id: Number(storeId),
     month: selectedMonth,
     year: selectedYear,
-    type: selectedType
+    type: selectedType,
   })
 
   if (isLoading) {
@@ -44,56 +44,62 @@ export const CustomerSalesPage = () => {
   // Handle export to Excel
   const handleExportOperations = () => {
     if (sales.length === 0) {
-      toast.error('Нет данных для экспорта');
-      return;
+      toast.error('Нет данных для экспорта')
+      return
     }
-    
+
     try {
       // Prepare data for export
       const exportData = sales.map((operation, index) => ({
         '#': (index + 1).toString(),
-        'Дата': new Date(operation.date).toLocaleDateString('ru-RU'),
-        'Сумма': Number(operation.sum).toFixed(2),
-        'Тип': operation.type === 'DEBT' ? 'В долг' : operation.type === 'PAYMENT' ? 'Оплата' : operation.type === 'RETURN' ? 'Возврат' : 'Оплачено',
-        'Магазин': operation.store_name || '—',
-      }));
-      
+        Дата: new Date(operation.date).toLocaleDateString('ru-RU'),
+        Сумма: Number(operation.sum).toFixed(2),
+        Тип:
+          operation.type === 'DEBT'
+            ? 'В долг'
+            : operation.type === 'PAYMENT'
+              ? 'Оплата'
+              : operation.type === 'RETURN'
+                ? 'Возврат'
+                : 'Оплачено',
+        Магазин: operation.store_name || '—',
+      }))
+
       // Add total row
-      const totalSum = sales
-        .reduce((total, operation) => total + (Number(operation.sum) || 0), 0);
-      
+      const totalSum = sales.reduce((total, operation) => total + (Number(operation.sum) || 0), 0)
+
       exportData.push({
         '#': 'ИТОГО',
-        'Дата': '',
-        'Сумма': totalSum.toFixed(2),
-        'Тип': '',
-        'Магазин': '',
-      });
-      
+        Дата: '',
+        Сумма: totalSum.toFixed(2),
+        Тип: '',
+        Магазин: '',
+      })
+
       // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+
       // Create workbook
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Операции клиента');
-      
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Операции клиента')
+
       // Generate filename with timestamp
-      const fileName = `operations_${customerName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+      const fileName = `operations_${customerName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
+
       // Export file
-      XLSX.writeFile(workbook, fileName);
-      
-      toast.success('Файл успешно экспортирован');
+      XLSX.writeFile(workbook, fileName)
+
+      toast.success('Файл успешно экспортирован')
     } catch (error) {
-      console.error('Error exporting operations:', error);
-      toast.error('Произошла ошибка при экспорте в Excel');
+      console.error('Error exporting operations:', error)
+      toast.error('Произошла ошибка при экспорте в Excel')
     }
-  };
+  }
 
   return (
     <div className="space-y-6">
       <ButtonBack onBack={() => navigate(-1)} />
-      
+
       <div>
         <h1 className="text-xl font-semibold text-slate-800">{customerName}</h1>
         <p className="text-sm text-slate-500">Операции клиента</p>
@@ -101,14 +107,14 @@ export const CustomerSalesPage = () => {
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 mb-4">
-        <button 
+        <button
           onClick={handleExportOperations}
           className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
         >
           <Download size={16} />
           Экспорт в Excel
         </button>
-        <button 
+        <button
           onClick={() => setShowPaymentModal(true)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -121,7 +127,7 @@ export const CustomerSalesPage = () => {
         >
           Создать возврат
         </button>
-        <button 
+        <button
           onClick={() => setShowSalesForm(!showSalesForm)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -141,7 +147,7 @@ export const CustomerSalesPage = () => {
               className="border border-slate-300 rounded-lg px-3 py-2"
             >
               <option value="">Все месяцы</option>
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((month) => (
                 <option key={month} value={month}>
                   {new Date(2023, month - 1, 1).toLocaleString('ru-RU', { month: 'long' })}
                 </option>
@@ -156,8 +162,10 @@ export const CustomerSalesPage = () => {
               className="border border-slate-300 rounded-lg px-3 py-2"
             >
               <option value="">Все годы</option>
-              {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
-                <option key={year} value={year}>{year}</option>
+              {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
               ))}
             </select>
           </div>
@@ -175,11 +183,11 @@ export const CustomerSalesPage = () => {
               <option value="RETURN">Возврат</option>
             </select>
           </div>
-          <button 
+          <button
             onClick={() => {
-              setSelectedMonth(undefined);
-              setSelectedYear(undefined);
-              setSelectedType(undefined);
+              setSelectedMonth(undefined)
+              setSelectedYear(undefined)
+              setSelectedType(undefined)
             }}
             className="mt-6 text-sm text-slate-600 hover:text-slate-800"
           >
@@ -197,18 +205,16 @@ export const CustomerSalesPage = () => {
               {sales
                 .reduce((total, operation) => {
                   if (operation.type === 'DEBT') {
-                    return total + Number(operation.sum);
+                    return total + Number(operation.sum)
                   } else if (operation.type === 'PAYMENT' || operation.type === 'RETURN') {
-                    return total - Number(operation.sum);
+                    return total - Number(operation.sum)
                   }
-                  return total;
+                  return total
                 }, 0)
                 .toLocaleString()}
             </span>
           </div>
-          <div className="text-sm text-blue-600">
-            {sales.length} операций
-          </div>
+          <div className="text-sm text-blue-600">{sales.length} операций</div>
         </div>
       </div>
 
@@ -217,16 +223,13 @@ export const CustomerSalesPage = () => {
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-slate-800">Создать продажу</h2>
-            <button 
-              onClick={() => setShowSalesForm(false)}
-              className="text-slate-500 hover:text-slate-700"
-            >
+            <button onClick={() => setShowSalesForm(false)} className="text-slate-500 hover:text-slate-700">
               Закрыть
             </button>
           </div>
-          <CustomerSalesForm 
-            initialCustomerId={Number(customerId)} 
-            initialStoreId={Number(storeId)} 
+          <CustomerSalesForm
+            initialCustomerId={Number(customerId)}
+            initialStoreId={Number(storeId)}
             onClose={() => setShowSalesForm(false)}
           />
         </div>
@@ -241,7 +244,7 @@ export const CustomerSalesPage = () => {
         onClose={() => setShowPaymentModal(false)}
         onPaymentSuccess={() => {
           // Refresh the data after payment
-          window.location.reload();
+          window.location.reload()
         }}
       />
 
@@ -258,7 +261,7 @@ export const CustomerSalesPage = () => {
 
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-800 mb-4">Список операций</h2>
-        
+
         {sales.length === 0 ? (
           <div className="text-center py-10 text-slate-500">У клиента пока нет операций</div>
         ) : (
@@ -266,39 +269,52 @@ export const CustomerSalesPage = () => {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  >
                     ID
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  >
                     Дата
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  >
                     Сумма
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  >
                     Тип
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                  >
                     Магазин
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
                 {sales.map((sale) => (
-                  <tr 
-                    key={sale.id} 
+                  <tr
+                    key={sale.id}
                     className="hover:bg-slate-50 cursor-pointer"
                     onClick={() => {
                       if (sale.sale_id) {
-                        setSelectedSaleId(sale.sale_id);
+                        setSelectedSaleId(sale.sale_id)
                       } else {
-                        setSelectedOperation(sale);
+                        setSelectedOperation(sale)
                       }
                     }}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                      #{sale.id}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">#{sale.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                       <div className="flex items-center gap-1">
                         <Calendar size={14} />
@@ -309,13 +325,19 @@ export const CustomerSalesPage = () => {
                       {sale.sum.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs ${sale.type === 'DEBT' ? 'bg-red-100 text-red-800' : sale.type === 'PAYMENT' ? 'bg-green-100 text-green-800' : sale.type === 'RETURN' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {sale.type === 'DEBT' ? 'В долг' : sale.type === 'PAYMENT' ? 'Оплата' : sale.type === 'RETURN' ? 'Возврат' : 'Оплачено'}
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs ${sale.type === 'DEBT' ? 'bg-red-100 text-red-800' : sale.type === 'PAYMENT' ? 'bg-green-100 text-green-800' : sale.type === 'RETURN' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}
+                      >
+                        {sale.type === 'DEBT'
+                          ? 'В долг'
+                          : sale.type === 'PAYMENT'
+                            ? 'Оплата'
+                            : sale.type === 'RETURN'
+                              ? 'Возврат'
+                              : 'Оплачено'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {sale.store_name}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{sale.store_name}</td>
                   </tr>
                 ))}
               </tbody>
@@ -323,7 +345,7 @@ export const CustomerSalesPage = () => {
           </div>
         )}
       </div>
-      
+
       {/* Operation Details Modal (for operations without sale_id) */}
       {selectedOperation && !selectedOperation.sale_id && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
@@ -333,22 +355,31 @@ export const CustomerSalesPage = () => {
                 <h2 className="text-lg font-semibold text-slate-800">Детали операции</h2>
                 <p className="text-sm text-slate-500">Полная информация об операции</p>
               </div>
-              
-              <button 
-                onClick={() => setSelectedOperation(null)} 
+
+              <button
+                onClick={() => setSelectedOperation(null)}
                 className="text-slate-400 hover:text-slate-600 transition cursor-pointer"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <line x1="18" y1="6" x2="6" y2="18"></line>
                   <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
               </button>
             </div>
-            
+
             <div className="px-6 py-5 space-y-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4">
-                  
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">Дата</label>
@@ -358,26 +389,34 @@ export const CustomerSalesPage = () => {
                           month: '2-digit',
                           year: 'numeric',
                           hour: '2-digit',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })}
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">Тип операции</label>
-                      <div className={`w-full rounded-lg border px-3 py-2 font-semibold ${selectedOperation.type === 'DEBT' ? 'bg-red-50 border-red-300 text-red-700' : selectedOperation.type === 'PAYMENT' ? 'bg-green-50 border-green-300 text-green-700' : selectedOperation.type === 'RETURN' ? 'bg-yellow-50 border-yellow-300 text-yellow-700' : 'bg-blue-50 border-blue-300 text-blue-700'}`}>
-                        {selectedOperation.type === 'DEBT' ? 'В долг' : selectedOperation.type === 'PAYMENT' ? 'Оплата' : selectedOperation.type === 'RETURN' ? 'Возврат' : 'Оплачено'}
+                      <div
+                        className={`w-full rounded-lg border px-3 py-2 font-semibold ${selectedOperation.type === 'DEBT' ? 'bg-red-50 border-red-300 text-red-700' : selectedOperation.type === 'PAYMENT' ? 'bg-green-50 border-green-300 text-green-700' : selectedOperation.type === 'RETURN' ? 'bg-yellow-50 border-yellow-300 text-yellow-700' : 'bg-blue-50 border-blue-300 text-blue-700'}`}
+                      >
+                        {selectedOperation.type === 'DEBT'
+                          ? 'В долг'
+                          : selectedOperation.type === 'PAYMENT'
+                            ? 'Оплата'
+                            : selectedOperation.type === 'RETURN'
+                              ? 'Возврат'
+                              : 'Оплачено'}
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-slate-600 mb-1">Сумма</label>
                     <div className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 font-semibold text-lg">
                       {selectedOperation.sum.toLocaleString()} сомони
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">Клиент</label>
@@ -385,7 +424,7 @@ export const CustomerSalesPage = () => {
                         {selectedOperation.customer_name}
                       </div>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-1">Магазин</label>
                       <div className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50">
@@ -396,7 +435,7 @@ export const CustomerSalesPage = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row justify-end gap-3 px-6 py-4 border-t bg-slate-50">
               <button
                 onClick={() => setSelectedOperation(null)}
@@ -408,7 +447,7 @@ export const CustomerSalesPage = () => {
           </div>
         </div>
       )}
-      
+
       {/* Sales Detail Modal (for operations with sale_id) */}
       <SalesDetailModal
         isOpen={!!selectedSaleId}

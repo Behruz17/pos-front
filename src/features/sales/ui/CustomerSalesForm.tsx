@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 interface TSaleItem {
   product_id: number
   product_name: string
-  product_code: string | null  // Adding product_code as required by the interface
+  product_code: string | null // Adding product_code as required by the interface
   quantity: number
   unit_price: number
 }
@@ -21,13 +21,18 @@ const emptyItem: TSaleItem = {
 }
 
 interface CustomerSalesFormProps {
-  initialCustomerId: number;
-  initialStoreId: number;
-  onClose?: () => void;
-  onSaleCreated?: () => void;
+  initialCustomerId: number
+  initialStoreId: number
+  onClose?: () => void
+  onSaleCreated?: () => void
 }
 
-export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, onSaleCreated }: CustomerSalesFormProps) => {
+export const CustomerSalesForm = ({
+  initialCustomerId,
+  initialStoreId,
+  onClose,
+  onSaleCreated,
+}: CustomerSalesFormProps) => {
   const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('PAID')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
   const [createSale, { isLoading }] = useCreateSaleMutation()
@@ -88,11 +93,11 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
     try {
       await createSale({
         customer_id: initialCustomerId, // Use the initial customer ID
-        store_id: initialStoreId,       // Use the initial store ID
+        store_id: initialStoreId, // Use the initial store ID
         payment_status,
         items: items.map((item) => {
           // Find the product to get its product_code
-          const product = products.find(p => p.id === item.product_id);
+          const product = products.find((p) => p.id === item.product_id)
           return {
             product_id: item.product_id,
             quantity: item.quantity,
@@ -105,13 +110,13 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
       toast.success('Продажа успешно создана')
       // Reset form
       setItems([emptyItem])
-      
+
       // Call the onSaleCreated callback if provided
-      onSaleCreated?.();
-      
+      onSaleCreated?.()
+
       // Close the form if onClose is provided
       if (onClose) {
-        onClose();
+        onClose()
       }
     } catch (error) {
       toast.error('Ошибка при создании продажи')
@@ -158,23 +163,29 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
   const getFilteredProducts = (searchTerm: string) => {
     if (!searchTerm) return products
     const lowerSearchTerm = searchTerm.toLowerCase()
-    return products.filter((p) => 
-      p.name.toLowerCase().includes(lowerSearchTerm) || 
-      (p.product_code && p.product_code.toLowerCase().includes(lowerSearchTerm))
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(lowerSearchTerm) ||
+        (p.product_code && p.product_code.toLowerCase().includes(lowerSearchTerm))
     )
   }
 
   // Handle product selection
-  const handleProductSelect = (productId: number, productName: string, productCode: string | null, rowIndex: number) => {
+  const handleProductSelect = (
+    productId: number,
+    productName: string,
+    productCode: string | null,
+    rowIndex: number
+  ) => {
     // Find the selected product to get its sales price
-    const selectedProduct = products.find(p => p.id === productId);
-    
+    const selectedProduct = products.find((p) => p.id === productId)
+
     // Set the selected product with auto-populated sales price
-    updateItem(rowIndex, { 
-      product_id: productId, 
+    updateItem(rowIndex, {
+      product_id: productId,
       product_name: productName,
       product_code: productCode,
-      unit_price: selectedProduct ? Number(selectedProduct.selling_price) : 0
+      unit_price: selectedProduct ? Number(selectedProduct.selling_price) : 0,
     })
     setTimeout(() => {
       refs.current[rowIndex]?.quantityRef.current?.focus()
@@ -194,8 +205,6 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
           <option value="DEBT">В долг</option>
         </select>
       </div>
-
-
 
       <div className="space-y-4">
         <div className="grid grid-cols-12 gap-4 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
@@ -245,9 +254,7 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
 
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
-                <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">
-                  {item.product_code || '—'}
-                </div>
+                <div className="w-full border rounded-lg px-3 py-2.5 bg-gray-50">{item.product_code || '—'}</div>
               </div>
 
               <div className="col-span-6 lg:col-span-2">
@@ -259,10 +266,10 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
                   pattern="[0-9]*"
                   value={item.quantity === 0 ? '' : item.quantity}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/^0+/, '') || '0';
-                    const numValue = Number(value);
+                    const value = e.target.value.replace(/^0+/, '') || '0'
+                    const numValue = Number(value)
                     if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { quantity: numValue });
+                      updateItem(i, { quantity: numValue })
                     }
                   }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
@@ -279,17 +286,17 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
                   pattern="[0-9]*(.[0-9]+)?"
                   value={item.unit_price === 0 ? '' : item.unit_price}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/^0+(?=\d)/, '');
-                    const numValue = Number(value);
+                    const value = e.target.value.replace(/^0+(?=\d)/, '')
+                    const numValue = value as any
                     if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { unit_price: numValue });
+                      updateItem(i, { unit_price: numValue })
                     }
                   }}
                   onKeyDown={(e) => handleKeyDown(e, i, 'price')}
                   onFocus={() => {
                     // Add a new row when this input gets focus in the last row
                     if (i === items.length - 1) {
-                      addItem();
+                      addItem()
                     }
                   }}
                   className="w-full border rounded-lg px-3 py-2.5"
@@ -324,7 +331,7 @@ export const CustomerSalesForm = ({ initialCustomerId, initialStoreId, onClose, 
           <div className="text-blue-800">
             <span className="font-semibold">Итого : </span>
             <span className="text-xl font-bold">
-              {items.reduce((total, item) => total + (item.quantity * item.unit_price), 0).toLocaleString()} с
+              {items.reduce((total, item) => total + item.quantity * item.unit_price, 0).toLocaleString()} с
             </span>
           </div>
           <div className="text-sm text-blue-600">
