@@ -200,7 +200,7 @@ const AdminReceiptForm = ({
   }
 
   const isInvalid = useMemo(
-    () => !supplierId || items.some((i) => !i.product_id || !i.product_name || !i.product_code || (isNaN(Number(i.product_id)) && !i.product_code.trim()) || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost || Number(i.boxes_qty) < 0 || Number(i.pieces_per_box) < 0 || Number(i.purchase_cost) <= 0),
+    () => !supplierId || items.some((i) => !i.product_id || !i.product_name || !i.boxes_qty || !i.pieces_per_box || !i.purchase_cost || Number(i.boxes_qty) < 0 || Number(i.pieces_per_box) < 0 || Number(i.purchase_cost) <= 0),
     [supplierId, items]
   )
 
@@ -493,13 +493,7 @@ const AdminReceiptForm = ({
       return;
     }
 
-    // Additional check for new products - ensure product_code is provided
-    for (const item of items) {
-      if (isNaN(Number(item.product_id)) && !item.product_code.trim()) {
-        toast.error('Артикул обязателен при создании нового товара');
-        return;
-      }
-    }
+    // Product code is now optional for new products
 
     if (!preselectedWarehouseId) {
       toast.error('Склад не выбран');
@@ -632,7 +626,7 @@ const totalAmount = items.reduce(
       {/* Items table header */}
       <div className="grid grid-cols-12 gap-2 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
         <div className="col-span-3">Товар</div>
-        <div className="col-span-3 lg:col-span-1">Артикул *</div>
+        <div className="col-span-3 lg:col-span-1">Артикул</div>
         <div className="col-span-1">Коробки</div>
         <div className="col-span-1">Шт. в кор.</div>
         <div className="col-span-1">Отд. шт.</div>
@@ -732,7 +726,7 @@ const totalAmount = items.reduce(
           </div>
 
           <div className="col-span-6 lg:col-span-1">
-            <label className="text-xs text-gray-500 lg:hidden">Артикул *</label>
+            <label className="text-xs text-gray-500 lg:hidden">Артикул</label>
             <input
               ref={(el) => {
                 const rowMap = inputRefs.current.get(i)
@@ -749,7 +743,6 @@ const totalAmount = items.reduce(
                   : 'border-gray-300'
               }`}
               placeholder="Введите артикул товара..."
-              required
               disabled={!!item.product_id && !isNaN(Number(item.product_id))} // Disable if existing product is selected
             />
             {isDuplicateCode(i, item.product_code, item.product_id) && (

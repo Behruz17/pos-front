@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Trash2, PackagePlus } from 'lucide-react'
+import { Trash2, PackagePlus, AlertTriangle, X } from 'lucide-react'
 import { useCreateSaleMutation } from '../api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { toast } from 'sonner'
@@ -27,14 +27,22 @@ interface CustomerSalesFormProps {
   onSaleCreated?: () => void
 }
 
+interface StockError {
+  productId: number
+  productName: string
+  requested: number
+  available: number
+}
+
 export const CustomerSalesForm = ({
   initialCustomerId,
   initialStoreId,
   onClose,
   onSaleCreated,
 }: CustomerSalesFormProps) => {
-  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('PAID')
+  const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
+  const [stockErrors, setStockErrors] = useState<StockError[]>([])
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const { data: products = [] } = useGetProductsQuery()
 
@@ -110,6 +118,7 @@ export const CustomerSalesForm = ({
       toast.success('Продажа успешно создана')
       // Reset form
       setItems([emptyItem])
+      setStockErrors([])
 
       // Call the onSaleCreated callback if provided
       onSaleCreated?.()
@@ -118,9 +127,36 @@ export const CustomerSalesForm = ({
       if (onClose) {
         onClose()
       }
-    } catch (error) {
-      toast.error('Ошибка при создании продажи')
+    } catch (error: any) {
       console.error(error)
+      
+      // Check if it's a stock error
+      if (error?.data?.error && error.data.error.includes('Not enough stock')) {
+        // Parse the error message to extract product information
+        const errorMatch = error.data.error.match(/product ID: (\d+).*?Requested: (\d+).*?Available: (\d+)/)
+        if (errorMatch) {
+          const productId = parseInt(errorMatch[1])
+          const requested = parseInt(errorMatch[2])
+          const available = parseInt(errorMatch[3])
+          
+          // Find the product name
+          const product = products.find((p) => p.id === productId)
+          const productName = product?.name || `Товар #${productId}`
+          
+          setStockErrors([{
+            productId,
+            productName,
+            requested,
+            available
+          }])
+          
+          toast.error('Недостаточно товара на складе')
+        } else {
+          toast.error('Ошибка при создании продажи')
+        }
+      } else {
+        toast.error('Ошибка при создании продажи')
+      }
     }
   }
 
@@ -339,6 +375,62 @@ export const CustomerSalesForm = ({
           </div>
         </div>
       </div>
+
+      {/* Stock Error Display */}
+      {stockErrors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-red-800">
+                  Недостаточно товара на складе
+                </h3>
+                <button
+                  onClick={() => setStockErrors([])}
+                  className="text-red-600 hover:text-red-800 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {stockErrors.map((error, index) => (
+                  <div key={index} className="bg-white rounded-lg p-4 border border-red-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-gray-900">{error.productName}</span>
+                      <span className="text-sm text-gray-500">ID: {error.productId}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Запрошено:</span>
+                        <span className="ml-2 font-semibold text-red-600">{error.requested} шт.</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Доступно:</span>
+                        <span className="ml-2 font-semibold text-green-600">{error.available} шт.</span>
+                      </div>
+                    </div>
+                    {error.available === 0 && (
+                      <div className="mt-2 text-xs text-red-600 font-medium">
+                        Товар полностью отсутствует на складе
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 p-3 bg-red-100 rounded-lg">
+                <p className="text-sm text-red-800">
+                  <strong>Рекомендация:</strong> Уменьшите количество товара или выберите другой товар для продолжения продажи.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <button
