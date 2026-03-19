@@ -78,9 +78,17 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
           "
       >
         {warehouses.map((w) => (
-          <button
+          <div
             key={w.id}
             onClick={() =>onSelect(w.id)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelect(w.id)
+              }
+            }}
             className="
                 cursor-pointer
                 group relative rounded-xl sm:rounded-2xl
@@ -147,7 +155,7 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
                 <Trash2 size={14} />
               </button>
             </div>
-          </button>
+          </div>
         ))}
       </div>
       {modalOpen && <CreateWarehouseModal onClose={() => setModalOpen(false)} />}

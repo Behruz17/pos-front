@@ -16,8 +16,8 @@ export const ProductImage = ({ src, alt, size = 40 }: Props) => {
       height={size}
       className="rounded-lg object-cover border"
       preview={{
-        mask: (
-          <Space direction="vertical" align="center">
+        cover: (
+          <Space orientation="vertical" align="center">
             <ZoomIn size={18} />
             <span className="text-xs">Открыть</span>
           </Space>

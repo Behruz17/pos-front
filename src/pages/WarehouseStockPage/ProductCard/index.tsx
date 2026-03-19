@@ -66,7 +66,6 @@ export const ProductCard = ({
                   w-full h-full object-cover                   
                 "
                 preview={{
-                  mask: true,
                   cover: (
                     <Space vertical align="center">
                       Просмотр
