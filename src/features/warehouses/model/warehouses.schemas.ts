@@ -85,3 +85,42 @@ export const warehouseSuppliersSchema = z.object({
     })
   ),
 })
+
+export const deliveryDriverSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  phone: z.string().nullable().optional().transform(val => val === null ? '' : val || ''),
+  balance: z.coerce.number(),
+  status: z.number(),
+  warehouse_id: z.number(),
+  created_at: z.string(),
+  updated_at: z.string().optional(),
+})
+
+export const warehouseDeliveryDriversSchema = z.object({
+  warehouse: warehouseSchema,
+  drivers: z.array(deliveryDriverSchema),
+})
+
+export const createDeliveryDriverRequestSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  phone: z.string().optional(),
+  balance: z.number().optional(),
+})
+
+export const createDeliveryDriverSchema = z.object({
+  message: z.string(),
+  driver: deliveryDriverSchema,
+})
+
+export const updateDeliveryDriverRequestSchema = z.object({
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  balance: z.number().optional(),
+  status: z.number().optional(),
+})
+
+export const updateDeliveryDriverSchema = z.object({
+  message: z.string(),
+  driver: deliveryDriverSchema,
+})

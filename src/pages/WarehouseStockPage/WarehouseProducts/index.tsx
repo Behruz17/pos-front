@@ -1,4 +1,4 @@
-import { useGetWarehouseProductsQuery, useGetWarehouseSuppliersQuery } from '@/features/warehouses/api/warehouses.api'
+import { useGetWarehouseProductsQuery, useGetWarehouseSuppliersQuery, useGetWarehouseDeliveryDriversQuery, useCreateDeliveryDriverMutation, useUpdateDeliveryDriverMutation, useDeleteDeliveryDriverMutation } from '@/features/warehouses/api/warehouses.api'
 
 import { useGetSupplierOperationsQuery } from '@/features/suppliers/api/suppliers.api'
 
@@ -9,6 +9,7 @@ import { SupplierStatsModal } from '@/widgets/modals/SupplierStatsModal';
 import { OperationDetailsModal } from '@/widgets/modals/OperationDetailsModal';
 
 import CreateSupplierModal from '@/widgets/modals/CreateSupplierModal';
+import { CreateDeliveryDriverModal } from '@/widgets/modals/CreateDeliveryDriverModal';
 
 import ButtonBack from '@/shared/ui/ButtonBack'
 
@@ -16,7 +17,7 @@ import { ProductImage } from '@/shared/ui/ProductImageю'
 
 import { Td, Th } from '@/shared/ui/Table'
 
-import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus, Pencil, BarChart3 } from 'lucide-react'
+import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus, Pencil, BarChart3, User, Trash2, Plus, Phone } from 'lucide-react'
 
 import { useMemo, useState } from 'react'
 
@@ -114,7 +115,7 @@ export const WarehouseProducts = ({
 
   const [search, setSearch] = useState('')
 
-  const [tab, setTab] = useState<'products' | 'suppliers' | 'receipt'>('products')
+  const [tab, setTab] = useState<'products' | 'suppliers' | 'receipt' | 'new'>('products')
 
   const [selectedSupplier, setSelectedSupplier] = useState<{id: number, name: string} | null>(null)
 
@@ -129,6 +130,10 @@ export const WarehouseProducts = ({
   const [addingSupplier, setAddingSupplier] = useState<boolean>(false)
 
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false)
+
+  // Delivery drivers state
+  const [addingDriver, setAddingDriver] = useState<boolean>(false)
+  const [editingDriverId, setEditingDriverId] = useState<number | null>(null)
 
   const { isAdmin } = useAuth()
 
@@ -180,10 +185,18 @@ export const WarehouseProducts = ({
 
   })
 
+  // Delivery drivers API
+  const { 
+    data: driversData, 
+    isLoading: driversLoading,
+    isError: driversError,
+    refetch: refetchDrivers
+  } = useGetWarehouseDeliveryDriversQuery(warehouseId)
 
+  const [deleteDriver] = useDeleteDeliveryDriverMutation()
 
-
-
+  const [createDriver] = useCreateDeliveryDriverMutation()
+  const [updateDriver] = useUpdateDeliveryDriverMutation()
 
 
 
@@ -230,7 +243,33 @@ export const WarehouseProducts = ({
     )
   }, [suppliersData, currencyFilter])
 
+  // Filter drivers by search
+  const filteredDrivers = useMemo(() => {
+    if (!driversData?.drivers) return []
+    return driversData.drivers.filter((driver) => 
+      driver.name.toLowerCase().includes(search.toLowerCase()) ||
+      (driver.phone || '').includes(search)
+    )
+  }, [driversData, search])
 
+  // Find editing driver data
+  const editingDriverData = useMemo(() => {
+    if (!editingDriverId || !driversData?.drivers) return null
+    return driversData.drivers.find(driver => driver.id === editingDriverId)
+  }, [editingDriverId, driversData?.drivers])
+
+  // Delivery driver functions
+  const handleDeleteDriver = async (driverId: number) => {
+    if (!confirm('Вы уверены, что хотите удалить этого доставщика?')) return
+    
+    try {
+      await deleteDriver(driverId).unwrap()
+      refetchDrivers()
+    } catch (error) {
+      console.error('Error deleting delivery driver:', error)
+      alert('Ошибка при удалении доставщика')
+    }
+  }
 
   if (isLoading) {
 
@@ -413,6 +452,16 @@ export const WarehouseProducts = ({
           />
 
         )}
+
+        <TabComponent
+          active={tab === 'new'}
+          onClick={() => {
+            setTab('new');
+            setSelectedSupplier(null);
+          }}
+          icon={<PackagePlus size={16} />}
+          label="Доставщики"
+        />
 
       </div>
 
@@ -1244,8 +1293,171 @@ export const WarehouseProducts = ({
 
 
 
-      {selectedSupplier && (
+      {tab === 'new' && (
 
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              <div className="relative max-w-sm">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Поиск доставщика…"
+                  className="w-full rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {isAdmin && (
+              <button
+                onClick={() => setAddingDriver(true)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition"
+              >
+                <Plus size={16} />
+                Добавить доставщика
+              </button>
+            )}
+          </div>
+
+          {driversLoading ? (
+            <div className="text-sm text-slate-500">Загрузка доставщиков…</div>
+          ) : driversError ? (
+            <div className="text-center py-10 text-red-500">
+              Ошибка загрузки доставщиков
+            </div>
+          ) : driversData?.drivers && filteredDrivers.length > 0 ? (
+            <div className="space-y-4">
+              {/* Desktop cards grid */}
+              <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredDrivers.map((driver) => (
+                  <div key={driver.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
+                          <User size={20} className="text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-slate-800 text-lg">{driver.name}</h3>
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full mt-1 ${
+                            driver.status === 1 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {driver.status === 1 ? 'Активен' : 'Неактивен'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Phone size={16} className="text-slate-400" />
+                        <span className="text-sm">{driver.phone || 'Нет телефона'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Баланс</span>
+                        <span className="font-semibold text-slate-800 text-lg">{driver.balance.toFixed(2)} с</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Создан</span>
+                        <span className="text-sm text-slate-600">
+                          {new Date(driver.created_at).toLocaleDateString('ru-RU')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    {isAdmin && (
+                      <div className="flex gap-2 pt-3 border-t border-slate-100">
+                        <button
+                          onClick={() => setEditingDriverId(driver.id)}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-sm font-medium transition"
+                        >
+                          <Pencil size={14} />
+                          Редактировать
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDriver(driver.id)}
+                          className="flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 transition"
+                          title="Удалить доставщика"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Mobile cards */}
+              <div className="sm:hidden space-y-3">
+                {filteredDrivers.map((driver) => (
+                  <div key={driver.id} className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <User size={16} className="text-slate-400" />
+                        <div className="font-medium text-slate-800">{driver.name}</div>
+                      </div>
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                        driver.status === 1 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {driver.status === 1 ? 'Активен' : 'Неактивен'}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Телефон:</span>
+                        <span className="text-slate-600">{driver.phone || '—'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Баланс:</span>
+                        <span className="font-semibold text-slate-700">{driver.balance.toFixed(2)} с</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Создан:</span>
+                        <span className="text-slate-600">{new Date(driver.created_at).toLocaleDateString('ru-RU')}</span>
+                      </div>
+                    </div>
+
+                    {isAdmin && (
+                      <div className="mt-3 flex gap-2 justify-end">
+                        <button
+                          onClick={() => setEditingDriverId(driver.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-sm"
+                        >
+                          <Pencil size={14} />
+                          Редактировать
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDriver(driver.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 text-sm"
+                        >
+                          <Trash2 size={14} />
+                          Удалить
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-10 text-slate-500">
+              {search ? 'Доставщики не найдены' : `Нет доставщиков для склада: ${data?.warehouse.name}`}
+            </div>
+          )}
+        </div>
+      )}
+
+
+
+      {selectedSupplier && (
         <SupplierPaymentModal
 
           supplierId={selectedSupplier.id}
@@ -1341,6 +1553,36 @@ export const WarehouseProducts = ({
           isOpen={showStatsModal}
           onClose={() => setShowStatsModal(false)}
           warehouseId={warehouseId}
+        />
+      )}
+
+      {addingDriver && isAdmin && (
+        <CreateDeliveryDriverModal 
+          isOpen={addingDriver}
+          onClose={() => setAddingDriver(false)}
+          warehouseId={warehouseId}
+          onSuccess={() => {
+            setAddingDriver(false);
+            refetchDrivers();
+          }}
+          createDriver={createDriver}
+          updateDriver={updateDriver}
+        />
+      )}
+
+      {editingDriverId !== null && isAdmin && (
+        <CreateDeliveryDriverModal 
+          isOpen={editingDriverId !== null}
+          onClose={() => setEditingDriverId(null)}
+          warehouseId={warehouseId}
+          driverId={editingDriverId}
+          driverData={editingDriverData}
+          onSuccess={() => {
+            setEditingDriverId(null);
+            refetchDrivers();
+          }}
+          createDriver={createDriver}
+          updateDriver={updateDriver}
         />
       )}
 

@@ -1,5 +1,16 @@
 import type z from 'zod'
-import { warehouseProductsDetailSchema, warehouseProductsSchema, warehouseSchema } from './warehouses.schemas'
+import { 
+  warehouseSchema, 
+  warehouseProductsSchema, 
+  warehouseProductsDetailSchema,
+  warehouseSuppliersSchema, 
+  deliveryDriverSchema, 
+  warehouseDeliveryDriversSchema, 
+  createDeliveryDriverRequestSchema,
+  createDeliveryDriverSchema, 
+  updateDeliveryDriverRequestSchema,
+  updateDeliveryDriverSchema 
+} from './warehouses.schemas'
 import type { TId } from '@/shared/types'
 
 export type TWarehouse = z.infer<typeof warehouseSchema>
@@ -25,3 +36,11 @@ export type TGetWarehousesSuppliers = {
   }>;
 }
 export type TStock = TGetWarehousesProductDetail['stock']
+
+export type TDeliveryDriver = z.infer<typeof deliveryDriverSchema>
+export type TGetWarehouseDeliveryDrivers = z.infer<typeof warehouseDeliveryDriversSchema>
+export type TCreateDeliveryDriverResponse = z.infer<typeof createDeliveryDriverSchema>
+export type TUpdateDeliveryDriverResponse = z.infer<typeof updateDeliveryDriverSchema>
+
+export type TCreateDeliveryDriverRequest = z.infer<typeof createDeliveryDriverRequestSchema>
+export type TUpdateDeliveryDriverRequest = z.infer<typeof updateDeliveryDriverRequestSchema>

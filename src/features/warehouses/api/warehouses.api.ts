@@ -7,8 +7,13 @@ import type {
   TMutateWarehouse,
   TPostWarehouseSuccess,
   TWarehouse,
+  TGetWarehouseDeliveryDrivers,
+  TCreateDeliveryDriverRequest,
+  TCreateDeliveryDriverResponse,
+  TUpdateDeliveryDriverRequest,
+  TUpdateDeliveryDriverResponse,
 } from '../model/warehouses.types'
-import { warehouseProductsDetailSchema, warehouseProductsSchema, warehouseSchema, warehouseSuppliersSchema } from '../model/warehouses.schemas'
+import { warehouseProductsDetailSchema, warehouseProductsSchema, warehouseSchema, warehouseSuppliersSchema, warehouseDeliveryDriversSchema, createDeliveryDriverSchema, updateDeliveryDriverSchema } from '../model/warehouses.schemas'
 import type { TDefaultResponse, TId } from '@/shared/types'
 
 const warehousesApi = baseApi.injectEndpoints({
@@ -115,6 +120,80 @@ const warehousesApi = baseApi.injectEndpoints({
         }
       },
     }),
+    getWarehouseDeliveryDrivers: build.query<TGetWarehouseDeliveryDrivers, TId>({
+      query: (warehouseId) => ({
+        url: `/warehouses/${warehouseId}/delivery-drivers`,
+        method: 'GET',
+      }),
+      transformResponse: (response: unknown) => {
+        try {
+          const parsed = warehouseDeliveryDriversSchema.parse(response);
+          return {
+            warehouse: parsed.warehouse,
+            drivers: parsed.drivers.map(driver => ({
+              id: driver.id,
+              name: driver.name,
+              phone: driver.phone || '',
+              balance: driver.balance,
+              status: driver.status,
+              warehouse_id: driver.warehouse_id,
+              created_at: driver.created_at,
+              updated_at: driver.updated_at,
+            }))
+          };
+        } catch (error) {
+          console.error('Error parsing warehouse delivery drivers:', error, 'Response:', response);
+          return {
+            warehouse: { id: 0, name: 'Unknown' },
+            drivers: []
+          };
+        }
+      },
+      providesTags: ['Suppliers'],
+    }),
+    createDeliveryDriver: build.mutation<TCreateDeliveryDriverResponse, { warehouseId: number; data: TCreateDeliveryDriverRequest }>({
+      query: ({ warehouseId, data }) => ({
+        url: `/warehouses/${warehouseId}/delivery-drivers`,
+        method: 'POST',
+        body: data,
+      }),
+      transformResponse: (response: unknown) => {
+        console.log('🔍 Raw server response for create delivery driver:', response);
+        try {
+          const parsed = createDeliveryDriverSchema.parse(response);
+          console.log('✅ Parsed response:', parsed);
+          return parsed;
+        } catch (error) {
+          console.error('❌ Error parsing create delivery driver response:', error);
+          console.error('❌ Response details:', JSON.stringify(response, null, 2));
+          throw error;
+        }
+      },
+      invalidatesTags: ['Suppliers'],
+    }),
+    updateDeliveryDriver: build.mutation<TUpdateDeliveryDriverResponse, { id: number; data: TUpdateDeliveryDriverRequest }>({
+      query: ({ id, data }) => ({
+        url: `/delivery-drivers/${id}`,
+        method: 'PUT',
+        body: data,
+      }),
+      transformResponse: (response: unknown) => {
+        try {
+          return updateDeliveryDriverSchema.parse(response);
+        } catch (error) {
+          console.error('Error parsing update delivery driver response:', error, 'Response:', response);
+          throw error;
+        }
+      },
+      invalidatesTags: ['Suppliers'],
+    }),
+    deleteDeliveryDriver: build.mutation<TDefaultResponse, number>({
+      query: (id) => ({
+        url: `/delivery-drivers/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Suppliers'],
+    }),
   }),
 })
 export const {
@@ -125,4 +204,8 @@ export const {
   useGetWarehouseProductsDetailQuery,
   useGetWarehouseProductsQuery,
   useGetWarehouseSuppliersQuery,
+  useGetWarehouseDeliveryDriversQuery,
+  useCreateDeliveryDriverMutation,
+  useUpdateDeliveryDriverMutation,
+  useDeleteDeliveryDriverMutation,
 } = warehousesApi
