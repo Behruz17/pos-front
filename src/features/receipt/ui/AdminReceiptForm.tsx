@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useGetProductsQuery, usePostProductMutation } from '@/features/products/api/products.api'
+import { useGetProductsQuery, usePostProductMutation, usePutProductMutation } from '@/features/products/api/products.api'
 import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
@@ -86,6 +86,7 @@ const AdminReceiptForm = ({
   const { data: suppliers = [] } = useGetSuppliersQuery()
   const [createReceipt, { isLoading }] = usePostReceiptMutation()
   const [createProduct, { isLoading: isCreatingProduct }] = usePostProductMutation()
+  const [updateProduct] = usePutProductMutation()
 
   const [supplierId, setSupplierId] = useState('')
   const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
@@ -136,6 +137,7 @@ const AdminReceiptForm = ({
           const product = products.find(p => p.id.toString() === patch.product_id)
           if (product) {
             next.product_name = product.name
+            // Always update product_code from the selected product
             next.product_code = product.product_code || ''
           }
         }
@@ -541,6 +543,27 @@ const AdminReceiptForm = ({
             toast.error('Ошибка при создании продукта');
             return; // Stop the process if product creation fails
           }
+        } else {
+          // Existing product - check if product_code was modified
+          const originalProduct = products.find(p => p.id.toString() === item.product_id);
+          if (originalProduct && originalProduct.product_code !== item.product_code) {
+            // Product code was modified - update the product
+            const formData = new FormData();
+            formData.append('name', originalProduct.name);
+            formData.append('product_code', item.product_code || '');
+            
+            try {
+              await updateProduct({ 
+                id: Number(item.product_id), 
+                body: formData 
+              }).unwrap();
+              toast.success(`Артикул для "${originalProduct.name}" обновлён`);
+            } catch (error) {
+              console.error('Error updating product:', error);
+              toast.error('Ошибка при обновлении продукта');
+              return; // Stop the process if product update fails
+            }
+          }
         }
       }
 
@@ -661,10 +684,10 @@ const totalAmount = items.reduce(
                   // Check if this is a product name that needs to be converted to ID
                   const foundProduct = products.find((p) => p.name === query)
                   if (foundProduct) {
-                    updateItem(i, { product_id: foundProduct.id.toString(), product_code: '' }) // Reset product_code when selecting existing product
+                    updateItem(i, { product_id: foundProduct.id.toString() })
                   } else {
                     // Update the input field with the query
-                    updateItem(i, { product_id: query, product_code: '' }) // Reset product_code for new products
+                    updateItem(i, { product_id: query })
                   }
                 }}
                 onKeyDown={(e) => {
@@ -676,14 +699,14 @@ const totalAmount = items.reduce(
                         p.name.toLowerCase() !== (item.product_id || '').toLowerCase() // Don't re-select the same product
                     )
                     if (filteredProducts.length > 0) {
-                      updateItem(i, { product_id: filteredProducts[0].id.toString(), product_name: filteredProducts[0].name, product_code: '' }) // Reset product_code when selecting existing product
+                      updateItem(i, { product_id: filteredProducts[0].id.toString(), product_name: filteredProducts[0].name })
                       e.preventDefault() // Prevent moving to next field
                     } else {
                       // Check if the entered value is not a product name that exists
                       const existingProduct = products.find(p => p.name.toLowerCase() === item.product_id.toLowerCase());
                       if (!existingProduct) {
                         // User entered a new product name, keep it as is
-                        updateItem(i, { product_id: item.product_id, product_name: item.product_id, product_code: '' }); // Reset product_code for new products
+                        updateItem(i, { product_id: item.product_id, product_name: item.product_id });
                       }
                       handleKeyDown(e, i, 'product_id') // Continue with normal navigation
                     }
@@ -715,7 +738,7 @@ const totalAmount = items.reduce(
                         <div
                           key={p.id}
                           className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                          onMouseDown={() => updateItem(i, { product_id: p.id.toString(), product_code: '' })} // Reset product_code when selecting existing product
+                          onMouseDown={() => updateItem(i, { product_id: p.id.toString() })}
                         >
                           {p.name}
                         </div>
@@ -743,7 +766,6 @@ const totalAmount = items.reduce(
                   : 'border-gray-300'
               }`}
               placeholder="Введите артикул товара..."
-              disabled={!!item.product_id && !isNaN(Number(item.product_id))} // Disable if existing product is selected
             />
             {isDuplicateCode(i, item.product_code, item.product_id) && (
               <p className="text-xs text-red-600 mt-1">Артикул уже существует</p>

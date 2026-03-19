@@ -21,6 +21,7 @@ export type TGetWarehousesSuppliers = {
     name: string;
     phone: string;
     balance: number;
+    currency?: string | null;
   }>;
 }
 export type TStock = TGetWarehousesProductDetail['stock']

@@ -102,6 +102,7 @@ const warehousesApi = baseApi.injectEndpoints({
               name: supplier.name,
               phone: supplier.phone || '', // Convert null to empty string
               balance: supplier.balance,
+              currency: supplier.currency,
             }))
           };
         } catch (error) {

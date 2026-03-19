@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router'
 import { useGetStoreCustomersQuery } from '@/features/stores/api/stores.api'
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { paths } from '@/app/routers/constants'
-import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet, AlertTriangle, X } from 'lucide-react'
+import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet, AlertTriangle, X, Building2, History } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useGetExpensesQuery, useCreateExpenseMutation } from '@/features/expenses/api/expenses.api'
 import {
@@ -21,13 +21,18 @@ import { SalesDetailModal } from '@/widgets/modals/SalesDetailModal'
 import { Trash2, PackagePlus, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import CustomerFormModal from '@/widgets/modals/CustomerFormModal'
+import ResellerFormModal from '@/widgets/modals/ResellerFormModal'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import CreateRetailReturnModal from '@/widgets/modals/CreateRetailReturnModal'
+import { useGetResellersQuery, useCreateResellerMutation, useUpdateResellerMutation, useDeleteResellerMutation, useCreateResellerOperationMutation } from '@/features/resellers/api/resellers.api'
+import ResellerOperationModal from '@/widgets/modals/ResellerOperationModal'
+import ResellerPaymentModal from '@/widgets/modals/ResellerPaymentModal'
+import ResellerOperationsHistoryModal from '@/widgets/modals/ResellerOperationsHistoryModal'
 
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'customers' | 'expenses' | 'sales' | 'statistics' | 'retailDebts'>(
+  const [activeTab, setActiveTab] = useState<'customers' | 'expenses' | 'sales' | 'statistics' | 'retailDebts' | 'resellers'>(
     'customers'
   )
   const [showExpenseForm, setShowExpenseForm] = useState(false)
@@ -35,6 +40,11 @@ export const StoreCustomersPage = () => {
   const [showRetailReturnModal, setShowRetailReturnModal] = useState(false)
   const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null)
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false)
+  const [editingResellerId, setEditingResellerId] = useState<number | null>(null)
+  const [showCreateResellerModal, setShowCreateResellerModal] = useState(false)
+  const [operationResellerId, setOperationResellerId] = useState<number | null>(null)
+  const [paymentResellerId, setPaymentResellerId] = useState<number | null>(null)
+  const [historyResellerId, setHistoryResellerId] = useState<number | null>(null)
 
   const [amount, setAmount] = useState('')
   const [comment, setComment] = useState('')
@@ -64,6 +74,10 @@ export const StoreCustomersPage = () => {
   const { data: retailDebtors = [], isLoading: isRetailDebtorsLoading } = useGetRetailDebtorsQuery({
     store_id: Number(storeId),
   })
+  const { data: resellers = [], isLoading: isResellersLoading, refetch: refetchResellers } = useGetResellersQuery({
+    store_id: Number(storeId),
+  })
+  const [deleteReseller] = useDeleteResellerMutation()
   const [createRetailDebtorPayment, { isLoading: isCreatingRetailPayment }] = useCreateRetailDebtorPaymentMutation()
 
   // State for payment modal
@@ -90,7 +104,7 @@ export const StoreCustomersPage = () => {
     year: selectedYear,
   })
 
-  if (isLoading || isExpensesLoading || isSalesLoading || isFinancialSummaryLoading || isRetailDebtorsLoading) {
+  if (isLoading || isExpensesLoading || isSalesLoading || isFinancialSummaryLoading || isRetailDebtorsLoading || isResellersLoading) {
     return <div className="flex justify-center py-20 text-slate-500">Загрузка данных…</div>
   }
 
@@ -230,6 +244,21 @@ export const StoreCustomersPage = () => {
     }
   }
 
+  const handleDeleteReseller = async (resellerId: number, resellerName: string) => {
+    if (!window.confirm(`Вы уверены, что хотите удалить реселлера "${resellerName}"?`)) {
+      return
+    }
+
+    try {
+      await deleteReseller(resellerId).unwrap()
+      toast.success('Реселлер успешно удален')
+      refetchResellers()
+    } catch (error) {
+      toast.error('Ошибка при удалении реселлера')
+      console.error(error)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <ButtonBack onBack={() => navigate(-1)} />
@@ -275,6 +304,13 @@ export const StoreCustomersPage = () => {
         >
           <User size={18} />
           Долги в розницу
+        </button>
+        <button
+          onClick={() => setActiveTab('resellers')}
+          className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${activeTab === 'resellers' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          <Building2 size={18} />
+          Ресселеры
         </button>
       </div>
 
@@ -748,6 +784,187 @@ export const StoreCustomersPage = () => {
                       ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'resellers' ? (
+          /* Resellers Tab Content */
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800">Ресселеры</h3>
+              <button
+                onClick={() => setShowCreateResellerModal(true)}
+                disabled={!isAdmin && me?.store_id !== Number(storeId)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                title={
+                  !isAdmin && me?.store_id !== Number(storeId)
+                    ? 'Вы можете добавлять реселлеров только в свой магазин'
+                    : ''
+                }
+              >
+                <Plus size={16} />
+                Добавить реселлера
+              </button>
+            </div>
+
+            {/* Total Resellers Summary */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+              <div className="flex justify-between items-center">
+                <div className="text-green-800">
+                  <span className="font-semibold">Всего реселлеров: </span>
+                  <span className="text-xl font-bold">{resellers.length}</span>
+                  <div className="text-sm mt-1">
+                    <span className="text-green-600">Общий баланс: {resellers.reduce((sum, r) => sum + Number(r.balance || 0), 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {resellers.length === 0 ? (
+              <div className="text-center py-10 text-slate-500">В этом магазине пока нет реселлеров</div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {resellers.map((reseller) => (
+                  <div
+                    key={reseller.id}
+                    className="border border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors relative"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-slate-100 rounded-lg">
+                            <Building2 size={18} className="text-slate-600" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-slate-800">{reseller.name}</h3>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs ${reseller.status === 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                              >
+                                {reseller.status === 1 ? 'Активен' : 'Неактивен'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-slate-600">
+                              <div className="flex items-center gap-1">
+                                <Phone size={14} />
+                                <span>{reseller.phone}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2">
+                        <div className="text-right">
+                          <div
+                            className={`text-sm font-medium ${Number(reseller.balance) < 0 ? 'text-red-600' : 'text-green-600'}`}
+                          >
+                            {Number(reseller.balance).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-xs text-slate-500">Баланс</div>
+                        </div>
+
+                        {/* Edit Icon - Always Visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingResellerId(reseller.id)
+                          }}
+                          className="
+                          p-1.5 rounded-lg
+                          bg-white border border-slate-200
+                          text-slate-400 hover:text-blue-600 hover:border-blue-500
+                          transition-all duration-200
+                          focus:outline-none focus:ring-2 focus:ring-blue-500
+                          self-start mt-1
+                        "
+                          title="Редактировать реселлера"
+                        >
+                          <Pencil size={14} />
+                        </button>
+
+                        {/* Delete Icon - Always Visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteReseller(reseller.id, reseller.name)
+                          }}
+                          className="
+                          p-1.5 rounded-lg
+                          bg-white border border-slate-200
+                          text-slate-400 hover:text-red-600 hover:border-red-500
+                          transition-all duration-200
+                          focus:outline-none focus:ring-2 focus:ring-red-500
+                          self-start mt-1
+                        "
+                          title="Удалить реселлера"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+
+                        {/* Operation Icon - Always Visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOperationResellerId(reseller.id)
+                          }}
+                          className="
+                          p-1.5 rounded-lg
+                          bg-white border border-slate-200
+                          text-slate-400 hover:text-blue-600 hover:border-blue-500
+                          transition-all duration-200
+                          focus:outline-none focus:ring-2 focus:ring-blue-500
+                          self-start mt-1
+                        "
+                          title="Операции с реселлером"
+                        >
+                          <PackagePlus size={14} />
+                        </button>
+
+                        {/* Payment Icon - Always Visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPaymentResellerId(reseller.id)
+                          }}
+                          className="
+                          p-1.5 rounded-lg
+                          bg-white border border-slate-200
+                          text-slate-400 hover:text-green-600 hover:border-green-500
+                          transition-all duration-200
+                          focus:outline-none focus:ring-2 focus:ring-green-500
+                          self-start mt-1
+                        "
+                          title="Оплата реселлеру"
+                        >
+                          <Wallet size={14} />
+                        </button>
+
+                        {/* History Icon - Always Visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setHistoryResellerId(reseller.id)
+                          }}
+                          className="
+                          p-1.5 rounded-lg
+                          bg-white border border-slate-200
+                          text-slate-400 hover:text-purple-600 hover:border-purple-500
+                          transition-all duration-200
+                          focus:outline-none focus:ring-2 focus:ring-purple-500
+                          self-start mt-1
+                        "
+                          title="История операций"
+                        >
+                          <History size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1239,6 +1456,32 @@ export const StoreCustomersPage = () => {
         />
       )}
 
+      {/* Reseller Edit Modal */}
+      {editingResellerId && (
+        <ResellerFormModal
+          resellerId={editingResellerId}
+          storeId={Number(storeId)}
+          onClose={() => {
+            setEditingResellerId(null)
+            // Refresh reseller data after editing
+            refetchResellers()
+          }}
+        />
+      )}
+
+      {/* Reseller Create Modal */}
+      {showCreateResellerModal && (
+        <ResellerFormModal
+          resellerId={null}
+          storeId={Number(storeId)}
+          onClose={() => {
+            setShowCreateResellerModal(false)
+            // Refresh reseller data after creating
+            refetchResellers()
+          }}
+        />
+      )}
+
       <CreateRetailReturnModal
         open={showRetailReturnModal}
         onClose={() => setShowRetailReturnModal(false)}
@@ -1247,6 +1490,44 @@ export const StoreCustomersPage = () => {
         }}
         storeId={Number(storeId)}
       />
+
+      {/* Reseller Operation Modal */}
+      {operationResellerId && (
+        <ResellerOperationModal
+          resellerId={operationResellerId}
+          resellerName={resellers.find(r => r.id === operationResellerId)?.name || ''}
+          storeId={Number(storeId)}
+          onClose={() => {
+            setOperationResellerId(null)
+            refetchResellers()
+          }}
+        />
+      )}
+
+      {/* Reseller Payment Modal */}
+      {paymentResellerId && (
+        <ResellerPaymentModal
+          resellerId={paymentResellerId}
+          resellerName={resellers.find(r => r.id === paymentResellerId)?.name || ''}
+          storeId={Number(storeId)}
+          onClose={() => {
+            setPaymentResellerId(null)
+            refetchResellers()
+          }}
+        />
+      )}
+
+      {/* Reseller Operations History Modal */}
+      {historyResellerId && (
+        <ResellerOperationsHistoryModal
+          resellerId={historyResellerId}
+          resellerName={resellers.find(r => r.id === historyResellerId)?.name || ''}
+          storeId={Number(storeId)}
+          onClose={() => {
+            setHistoryResellerId(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1288,6 +1569,37 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
   const [stockErrors, setStockErrors] = useState<StockError[]>([])
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const { data: products = [] } = useGetProductsQuery()
+  
+  // States for customer autocomplete
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false)
+  
+  // Get retail debtors for autocomplete
+  const { storeId } = useParams<{ storeId: string }>()
+  const { data: retailDebtors = [] } = useGetRetailDebtorsQuery({
+    store_id: Number(storeId) || initialStoreId,
+  })
+
+  // Filter debtors based on customer name input
+  const getFilteredDebtors = () => {
+    if (!customerName.trim()) return []
+    const lowerSearchTerm = customerName.toLowerCase()
+    return retailDebtors.filter(debtor => 
+      debtor.customer_name.toLowerCase().includes(lowerSearchTerm)
+    )
+  }
+
+  // Handle customer selection from suggestions
+  const handleCustomerSelect = (debtor: any) => {
+    setCustomerName(debtor.customer_name)
+    setPhone(debtor.phone || '')
+    setShowCustomerSuggestions(false)
+  }
+
+  // Handle customer input changes
+  const handleCustomerInputChange = (value: string) => {
+    setCustomerName(value)
+    setShowCustomerSuggestions(value.trim().length > 0 && getFilteredDebtors().length > 0)
+  }
 
   // Refs for keyboard navigation
   const refs = useRef<
@@ -1388,11 +1700,14 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       // Check if it's a stock error
       if (error?.data?.error && error.data.error.includes('Not enough stock')) {
         // Parse the error message to extract product information
-        const errorMatch = error.data.error.match(/product ID: (\d+).*?Requested: (\d+).*?Available: (\d+)/)
-        if (errorMatch) {
-          const productId = parseInt(errorMatch[1])
-          const requested = parseInt(errorMatch[2])
-          const available = parseInt(errorMatch[3])
+        const fullMatch = error.data.error.match(/product ID: (\d+).*?Requested: (\d+).*?Available: (\d+)/)
+        const partialMatch = error.data.error.match(/product ID: (\d+)/)
+        
+        if (fullMatch) {
+          // Case 1: Full error with requested and available quantities
+          const productId = parseInt(fullMatch[1])
+          const requested = parseInt(fullMatch[2])
+          const available = parseInt(fullMatch[3])
           
           // Find the product name
           const product = products.find((p) => p.id === productId)
@@ -1403,6 +1718,20 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
             productName,
             requested,
             available
+          }])
+          
+          toast.error('Недостаточно товара на складе')
+        } else if (partialMatch) {
+          // Case 2: Partial error without quantities (show generic stock error)
+          const productId = parseInt(partialMatch[1])
+          const product = products.find((p) => p.id === productId)
+          const productName = product?.name || `Товар #${productId}`
+          
+          setStockErrors([{
+            productId,
+            productName,
+            requested: 0, // Unknown
+            available: 0  // Unknown
           }])
           
           toast.error('Недостаточно товара на складе')
@@ -1504,13 +1833,45 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Имя клиента *</label>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2"
-              placeholder="Введите имя клиента"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => handleCustomerInputChange(e.target.value)}
+                onFocus={() => {
+                  if (customerName.trim() && getFilteredDebtors().length > 0) {
+                    setShowCustomerSuggestions(true)
+                  }
+                }}
+                onBlur={() => {
+                  // Delay hiding suggestions to allow click on suggestion
+                  setTimeout(() => setShowCustomerSuggestions(false), 200)
+                }}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                placeholder="Введите имя клиента"
+              />
+              
+              {/* Dropdown for customer suggestions */}
+              {showCustomerSuggestions && getFilteredDebtors().length > 0 && (
+                <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
+                  {getFilteredDebtors().map((debtor) => (
+                    <div
+                      key={debtor.id}
+                      className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0"
+                      onClick={() => handleCustomerSelect(debtor)}
+                    >
+                      <div className="font-medium text-slate-800">{debtor.customer_name}</div>
+                      <div className="text-xs text-slate-500">
+                        Телефон: {debtor.phone || 'Не указан'}
+                      </div>
+                      <div className="text-xs text-red-600">
+                        Долг: {Number(debtor.remaining_balance || 0).toFixed(2)} с
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Телефон клиента *</label>
@@ -1705,13 +2066,22 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-600">Запрошено:</span>
-                          <span className="ml-2 font-semibold text-red-600">{error.requested} шт.</span>
+                          <span className="ml-2 font-semibold text-red-600">
+                            {error.requested > 0 ? `${error.requested} шт.` : 'Неизвестно'}
+                          </span>
                         </div>
                         <div>
                           <span className="text-gray-600">Доступно:</span>
-                          <span className="ml-2 font-semibold text-green-600">{error.available} шт.</span>
+                          <span className="ml-2 font-semibold text-green-600">
+                            {error.available > 0 ? `${error.available} шт.` : 'Неизвестно'}
+                          </span>
                         </div>
                       </div>
+                      {error.requested === 0 && error.available === 0 && (
+                        <div className="mt-2 text-xs text-red-600 font-medium">
+                          Недостаточно товара на складе. Проверьте доступное количество.
+                        </div>
+                      )}
                       {error.available === 0 && (
                         <div className="mt-2 text-xs text-red-600 font-medium">
                           Товар полностью отсутствует на складе

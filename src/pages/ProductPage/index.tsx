@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Edit2, Package, Plus, Search, Trash2 } from 'lucide-react'
+import { Edit2, Package, Plus, Search, Trash2, Download } from 'lucide-react'
 import { useDeleteProductMutation, useGetProductsQuery } from '@/features/products/api/products.api'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { formatDateTime } from '@/shared/formatDateTime'
@@ -8,6 +8,8 @@ import { Loading } from '@/shared/ui/Loading'
 import { CreateProductModal } from '@/widgets/modals/CreateProductModal'
 import { ProductImage } from '@/shared/ui/ProductImageю'
 import EditProductModal from '@/widgets/modals/EditProductModal'
+import * as XLSX from 'xlsx'
+import { toast } from 'sonner'
 
 const ProductsPage = () => {
   const { data: products = [], isLoading } = useGetProductsQuery()
@@ -25,6 +27,7 @@ const ProductsPage = () => {
   const [search, setSearch] = useState('')
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [openProductModal, setOpenProductModal] = useState(false)
+  const [excelExporting, setExcelExporting] = useState(false)
 
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation()
 
@@ -38,9 +41,74 @@ const ProductsPage = () => {
     setDeleteId(null)
   }
 
+  // Handle Excel file export
+  const handleExcelExport = () => {
+    setExcelExporting(true)
+    
+    try {
+      // Prepare data for export
+      const exportData: Record<string, string | number>[] = filtered.map((product, index) => ({
+        '#': (index + 1).toString(),
+        'Товар': product.name,
+        'Артикул': product.product_code || '',
+        'Производитель': product.manufacturer || '—',
+        'Закупка': Number(product.purchase_cost || 0),
+        'Цена': Number(product.selling_price || 0),
+        'Остаток': Number(product.total_stock || 0),
+        'Последняя цена': Number(product.last_unit_price || 0),
+        'Создан': formatDateTime(product.created_at)
+      }))
+      
+      // Calculate totals
+      const totalValue = filtered.reduce(
+        (sum, p) => sum + Number(p.purchase_cost || 0) * Number(p.total_stock || 0),
+        0
+      )
+      
+      const totalStock = filtered.reduce(
+        (sum, p) => sum + Number(p.total_stock || 0),
+        0
+      )
+      
+      // Add total row
+      exportData.push({
+        '#': 'ИТОГО',
+        'Товар': `Всего товаров: ${filtered.length}`,
+        'Артикул': '',
+        'Производитель': '',
+        'Закупка': 0,
+        'Цена': 0,
+        'Остаток': totalStock,
+        'Последняя цена': 0,
+        'Создан': '',
+        'Общая стоимость': totalValue
+      })
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары')
+      
+      // Generate filename with timestamp
+      const fileName = `products_${new Date().toISOString().split('T')[0]}.xlsx`
+      
+      // Export file
+      XLSX.writeFile(workbook, fileName)
+      
+      toast.success('Файл успешно экспортирован')
+      setExcelExporting(false)
+    } catch (error) {
+      console.error('Error exporting Excel:', error)
+      toast.error('Произошла ошибка при экспорте в Excel')
+      setExcelExporting(false)
+    }
+  }
+
   if (isLoading) return <Loading text="товаров" />
-  
-  
+
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -50,6 +118,16 @@ const ProductsPage = () => {
         </div>
 
         <div className="flex gap-3 w-full sm:w-auto">
+          <button
+            onClick={handleExcelExport}
+            disabled={excelExporting || filtered.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Экспорт в Excel"
+          >
+            <Download size={16} />
+            <span className="hidden sm:inline">{excelExporting ? 'Экспорт...' : 'Экспорт в Excel'}</span>
+          </button>
+
           <div className="relative w-full sm:w-72">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -258,13 +336,12 @@ const ProductsPage = () => {
                   <td className="px-6 py-4 text-right">
                     <div className="inline-flex items-center justify-center gap-1">
                       <span
-                        className={`font-semibold px-3 py-1.5 rounded-full text-sm ${
-                          parseInt(p.total_stock) > 50
+                        className={`font-semibold px-3 py-1.5 rounded-full text-sm ${parseInt(p.total_stock) > 50
                             ? 'bg-blue-50 text-blue-700'
                             : parseInt(p.total_stock) > 10
                               ? 'bg-emerald-50 text-emerald-700'
                               : 'bg-amber-50 text-amber-700'
-                        }`}
+                          }`}
                       >
                         {p.total_stock}
                       </span>
@@ -334,21 +411,43 @@ const ProductsPage = () => {
         {filtered.length > 0 && (
           <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/50">
             <div className="flex items-center justify-between text-sm text-slate-600">
+
+              {/* Кол-во товаров */}
               <div className="flex items-center gap-2">
                 <span className="font-medium">{filtered.length}</span>
                 <span>товаров</span>
               </div>
-                <div className="flex items-center gap-2">
-                    <span>Итого</span>
-                <span className="font-medium">{filtered.reduce((sum, p) => sum + parseInt(p.purchase_cost || '0'), 0)} С</span>
-              
+
+              {/* Общая стоимость */}
+              <div className="flex items-center gap-2">
+                <span>Итого</span>
+                <span className="font-medium">
+                  {filtered
+                    .reduce(
+                      (sum, p) =>
+                        sum +
+                        Number(p.purchase_cost || 0) *
+                        Number(p.total_stock || 0),
+                      0
+                    )
+                    .toFixed(2)}{" "}
+                  смн.
+                </span>
               </div>
+
+              {/* Общий остаток */}
               <div className="text-slate-400">
                 <span className="font-medium">Общий остаток:</span>
                 <span className="ml-2 text-slate-700">
-                  {filtered.reduce((sum, p) => sum + parseInt(p.total_stock || '0'), 0)}
+                  {filtered
+                    .reduce(
+                      (sum, p) => sum + Number(p.total_stock || 0),
+                      0
+                    )
+                    .toFixed(2)}
                 </span>
               </div>
+
             </div>
           </div>
         )}
