@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useGetProductsQuery, usePostProductMutation, usePutProductMutation } from '@/features/products/api/products.api'
 import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api'
+import { useGetWarehouseDeliveryDriversQuery } from '@/features/warehouses/api/warehouses.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { Trash2, PackagePlus, Upload, Download, RotateCw } from 'lucide-react'
@@ -84,11 +85,13 @@ const AdminReceiptForm = ({
 
   const { data: products = [] } = useGetProductsQuery()
   const { data: suppliers = [] } = useGetSuppliersQuery()
+  const { data: deliveryDriversData } = useGetWarehouseDeliveryDriversQuery(preselectedWarehouseId ? Number(preselectedWarehouseId) : 0)
   const [createReceipt, { isLoading }] = usePostReceiptMutation()
   const [createProduct, { isLoading: isCreatingProduct }] = usePostProductMutation()
   const [updateProduct] = usePutProductMutation()
 
   const [supplierId, setSupplierId] = useState('')
+  const [deliveryDriverId, setDeliveryDriverId] = useState('')
   const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
 
   // State for Excel import
@@ -585,11 +588,13 @@ const AdminReceiptForm = ({
       await createReceipt({
         warehouse_id: Number(preselectedWarehouseId), // Use preselected warehouse ID from props
         supplier_id: Number(supplierId),
+        delivery_driver_id: deliveryDriverId ? Number(deliveryDriverId) : undefined,
         items: apiPayloadItems,
       }).unwrap()
 
       toast.success('Приход успешно оформлен');
       setSupplierId('');
+      setDeliveryDriverId('');
       setItems([emptyItem]);
     } catch (error) {
       console.error('Error creating receipt:', error);
@@ -618,6 +623,26 @@ const totalAmount = items.reduce(
             </option>
           ))}
         </select>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Доставщик (опционально)</label>
+        <select
+          value={deliveryDriverId}
+          onChange={(e) => setDeliveryDriverId(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2.5"
+          disabled={!preselectedWarehouseId}
+        >
+          <option value="">Выберите доставщика</option>
+          {deliveryDriversData?.drivers?.map((driver) => (
+            <option key={driver.id} value={driver.id}>
+              {driver.name}
+            </option>
+          ))}
+        </select>
+        {!preselectedWarehouseId && (
+          <p className="text-xs text-gray-500 mt-1">Сначала выберите склад</p>
+        )}
       </div>
 
       {/* Operations toolbar */}

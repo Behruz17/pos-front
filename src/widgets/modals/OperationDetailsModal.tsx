@@ -95,8 +95,26 @@ export const OperationDetailsModal = ({
                   <Loading text="деталей операции" />
                 </div>
               ) : isError ? (
-                <div className="text-center py-10 text-red-500">
-                  Ошибка загрузки деталей: {(error as any)?.data?.message || 'Неизвестная ошибка'}
+                <div className="text-center py-10">
+                  <div className="text-red-500 mb-4">
+                    Ошибка загрузки деталей
+                  </div>
+                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-4 text-left max-w-2xl mx-auto">
+                    <div className="mb-2">
+                      <strong>Детали ошибки:</strong>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div>
+                        <strong>Status:</strong> {(error as any)?.status || 'N/A'}
+                      </div>
+                      <div>
+                        <strong>Error Data:</strong> {JSON.stringify((error as any)?.data, null, 2)}
+                      </div>
+                      <div>
+                        <strong>Original Error:</strong> {JSON.stringify(error, null, 2)}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ) : receiptItems && receiptItems.length > 0 ? (
                 <div className="space-y-6">

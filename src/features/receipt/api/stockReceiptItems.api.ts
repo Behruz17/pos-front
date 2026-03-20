@@ -10,7 +10,7 @@ export const stockReceiptItemSchema = z.object({
   product_name: z.string(),
   manufacturer: z.string().nullable(),
   image: z.string().nullable(),
-  product_code: z.string(),
+  product_code: z.string().nullable(),
   boxes_qty: z.number().nullable(),
   pieces_per_box: z.number().nullable(),
   loose_pieces: z.number().nullable(),

@@ -10,6 +10,8 @@ export const receiptGtoSchema = z.object({
   created_by_name: z.string(),
   created_at: z.string(),
   total_amount: z.string(),
+  delivery_driver_id: z.number().nullable(),
+  delivery_driver_name: z.string().nullable(),
 })
 
 export const oneReceiptGtoSchema = z.object({
@@ -22,6 +24,8 @@ export const oneReceiptGtoSchema = z.object({
   created_by_name: z.string(),
   created_at: z.string(),
   total_amount: z.string(),
+  delivery_driver_id: z.number().nullable(),
+  delivery_driver_name: z.string().nullable(),
   items: z.array(
     z.object({
       id: z.number(),

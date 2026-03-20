@@ -8,6 +8,8 @@ import { SupplierStatsModal } from '@/widgets/modals/SupplierStatsModal';
 
 import { OperationDetailsModal } from '@/widgets/modals/OperationDetailsModal';
 
+import { DeliveryOperationsModal } from '@/widgets/modals/DeliveryOperationsModal'
+
 import CreateSupplierModal from '@/widgets/modals/CreateSupplierModal';
 import { CreateDeliveryDriverModal } from '@/widgets/modals/CreateDeliveryDriverModal';
 
@@ -134,6 +136,8 @@ export const WarehouseProducts = ({
   // Delivery drivers state
   const [addingDriver, setAddingDriver] = useState<boolean>(false)
   const [editingDriverId, setEditingDriverId] = useState<number | null>(null)
+  const [selectedDriverForOperations, setSelectedDriverForOperations] = useState<{id: number, name: string} | null>(null)
+  const [showDeliveryOperationsModal, setShowDeliveryOperationsModal] = useState(false)
 
   const { isAdmin } = useAuth()
 
@@ -1380,6 +1384,16 @@ export const WarehouseProducts = ({
                           Редактировать
                         </button>
                         <button
+                          onClick={() => {
+                            setSelectedDriverForOperations({id: driver.id, name: driver.name})
+                            setShowDeliveryOperationsModal(true)
+                          }}
+                          className="flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300 transition"
+                          title="Операции"
+                        >
+                          Операции
+                        </button>
+                        <button
                           onClick={() => handleDeleteDriver(driver.id)}
                           className="flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 transition"
                           title="Удалить доставщика"
@@ -1433,6 +1447,16 @@ export const WarehouseProducts = ({
                         >
                           <Pencil size={14} />
                           Редактировать
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedDriverForOperations({id: driver.id, name: driver.name})
+                            setShowDeliveryOperationsModal(true)
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300 text-sm"
+                          title="Операции"
+                        >
+                          Операции
                         </button>
                         <button
                           onClick={() => handleDeleteDriver(driver.id)}
@@ -1583,6 +1607,19 @@ export const WarehouseProducts = ({
           }}
           createDriver={createDriver}
           updateDriver={updateDriver}
+        />
+      )}
+
+      {selectedDriverForOperations && (
+        <DeliveryOperationsModal
+          isOpen={showDeliveryOperationsModal}
+          onClose={() => {
+            setShowDeliveryOperationsModal(false)
+            setSelectedDriverForOperations(null)
+          }}
+          driverId={selectedDriverForOperations.id}
+          driverName={selectedDriverForOperations.name}
+          onBalanceUpdate={() => refetchDrivers()}
         />
       )}
 

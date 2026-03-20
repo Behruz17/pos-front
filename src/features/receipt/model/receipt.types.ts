@@ -31,6 +31,7 @@ export type TReceiptItemResponse = {
 export type TCreateReceipt = {
   warehouse_id: number
   supplier_id: number
+  delivery_driver_id?: number
   items: TReceiptItem[]
 }
 
