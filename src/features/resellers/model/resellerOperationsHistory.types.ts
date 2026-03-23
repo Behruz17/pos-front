@@ -4,7 +4,7 @@ export type TResellerOperationHistoryItem = {
   store_id: number
   store_name: string
   sum: number
-  type: 'RECEIPT' | 'SALE' | 'RETURN'
+  type: 'RECEIPT' | 'SALE' | 'RETURN' | 'PAYMENT_FROM_RESELLER' | 'PAYMENT_TO_RESELLER'
   note: string | null
   date: string
 }
@@ -22,7 +22,7 @@ export type TResellerOperationsHistoryResponse = {
 
 export type TGetResellerOperationsParams = {
   resellerId: number
-  type?: 'RECEIPT' | 'SALE' | 'RETURN'
+  type?: 'RECEIPT' | 'SALE' | 'RETURN' | 'PAYMENT_FROM_RESELLER' | 'PAYMENT_TO_RESELLER'
   store_id?: number
   limit?: number
 }

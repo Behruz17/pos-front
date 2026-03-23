@@ -10,6 +10,8 @@ import { OperationDetailsModal } from '@/widgets/modals/OperationDetailsModal';
 
 import { DeliveryOperationsModal } from '@/widgets/modals/DeliveryOperationsModal'
 
+import { DeliveryPaymentModal } from '@/widgets/modals/DeliveryPaymentModal'
+
 import CreateSupplierModal from '@/widgets/modals/CreateSupplierModal';
 import { CreateDeliveryDriverModal } from '@/widgets/modals/CreateDeliveryDriverModal';
 
@@ -19,7 +21,7 @@ import { ProductImage } from '@/shared/ui/ProductImageю'
 
 import { Td, Th } from '@/shared/ui/Table'
 
-import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus, Pencil, BarChart3, User, Trash2, Plus, Phone } from 'lucide-react'
+import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus, Pencil, BarChart3, User, Trash2, Plus, Phone, CreditCard, History } from 'lucide-react'
 
 import { useMemo, useState } from 'react'
 
@@ -138,6 +140,8 @@ export const WarehouseProducts = ({
   const [editingDriverId, setEditingDriverId] = useState<number | null>(null)
   const [selectedDriverForOperations, setSelectedDriverForOperations] = useState<{id: number, name: string} | null>(null)
   const [showDeliveryOperationsModal, setShowDeliveryOperationsModal] = useState(false)
+  const [selectedDriverForPayment, setSelectedDriverForPayment] = useState<{id: number, name: string} | null>(null)
+  const [showDeliveryPaymentModal, setShowDeliveryPaymentModal] = useState(false)
 
   const { isAdmin } = useAuth()
 
@@ -1375,13 +1379,13 @@ export const WarehouseProducts = ({
 
                     {/* Actions */}
                     {isAdmin && (
-                      <div className="flex gap-2 pt-3 border-t border-slate-100">
+                      <div className="flex gap-2 pt-3 border-t border-slate-100 justify-center">
                         <button
                           onClick={() => setEditingDriverId(driver.id)}
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-sm font-medium transition"
+                          className="flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition"
+                          title="Редактировать"
                         >
-                          <Pencil size={14} />
-                          Редактировать
+                          <Pencil size={16} />
                         </button>
                         <button
                           onClick={() => {
@@ -1391,14 +1395,24 @@ export const WarehouseProducts = ({
                           className="flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300 transition"
                           title="Операции"
                         >
-                          Операции
+                          <History size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedDriverForPayment({id: driver.id, name: driver.name})
+                            setShowDeliveryPaymentModal(true)
+                          }}
+                          className="flex items-center justify-center px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                          title="Оплата"
+                        >
+                          <CreditCard size={16} />
                         </button>
                         <button
                           onClick={() => handleDeleteDriver(driver.id)}
                           className="flex items-center justify-center px-3 py-2 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 transition"
-                          title="Удалить доставщика"
+                          title="Удалить"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     )}
@@ -1440,30 +1454,40 @@ export const WarehouseProducts = ({
                     </div>
 
                     {isAdmin && (
-                      <div className="mt-3 flex gap-2 justify-end">
+                      <div className="mt-3 flex gap-2 justify-center">
                         <button
                           onClick={() => setEditingDriverId(driver.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 text-sm"
+                          className="flex items-center justify-center p-2 rounded-lg border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300"
+                          title="Редактировать"
                         >
-                          <Pencil size={14} />
-                          Редактировать
+                          <Pencil size={16} />
                         </button>
                         <button
                           onClick={() => {
                             setSelectedDriverForOperations({id: driver.id, name: driver.name})
                             setShowDeliveryOperationsModal(true)
                           }}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300 text-sm"
+                          className="flex items-center justify-center p-2 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-800 hover:border-slate-300"
                           title="Операции"
                         >
-                          Операции
+                          <History size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedDriverForPayment({id: driver.id, name: driver.name})
+                            setShowDeliveryPaymentModal(true)
+                          }}
+                          className="flex items-center justify-center p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                          title="Оплата"
+                        >
+                          <CreditCard size={16} />
                         </button>
                         <button
                           onClick={() => handleDeleteDriver(driver.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 text-sm"
+                          className="flex items-center justify-center p-2 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300"
+                          title="Удалить"
                         >
-                          <Trash2 size={14} />
-                          Удалить
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     )}
@@ -1620,6 +1644,19 @@ export const WarehouseProducts = ({
           driverId={selectedDriverForOperations.id}
           driverName={selectedDriverForOperations.name}
           onBalanceUpdate={() => refetchDrivers()}
+        />
+      )}
+
+      {selectedDriverForPayment && (
+        <DeliveryPaymentModal
+          isOpen={showDeliveryPaymentModal}
+          onClose={() => {
+            setShowDeliveryPaymentModal(false)
+            setSelectedDriverForPayment(null)
+          }}
+          driverId={selectedDriverForPayment.id}
+          driverName={selectedDriverForPayment.name}
+          onSuccess={() => refetchDrivers()}
         />
       )}
 

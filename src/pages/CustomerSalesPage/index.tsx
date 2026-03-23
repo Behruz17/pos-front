@@ -40,6 +40,7 @@ export const CustomerSalesPage = () => {
 
   const { operations: sales } = data
   const customerName = 'customer' in data ? data.customer.full_name : 'Операции магазина'
+  const customerBalance = 'customer' in data ? Number(data.customer.balance || 0) : 0
 
   // Handle export to Excel
   const handleExportOperations = () => {
@@ -198,23 +199,33 @@ export const CustomerSalesPage = () => {
 
       {/* Total Summary */}
       <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6">
-        <div className="flex justify-between items-center">
-          <div className="text-blue-800">
-            <span className="font-semibold">Остаток долга: </span>
-            <span className="text-xl font-bold">
-              {sales
-                .reduce((total, operation) => {
-                  if (operation.type === 'DEBT') {
-                    return total + Number(operation.sum)
-                  } else if (operation.type === 'PAYMENT' || operation.type === 'RETURN') {
-                    return total - Number(operation.sum)
-                  }
-                  return total
-                }, 0)
-                .toLocaleString()}
-            </span>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <div className="text-blue-800">
+              <span className="font-semibold">Сумма операций: </span>
+              <span className="text-xl font-bold">
+                {sales
+                  .reduce((total, operation) => {
+                    if (operation.type === 'DEBT') {
+                      return total + Number(operation.sum)
+                    } else if (operation.type === 'PAYMENT' || operation.type === 'RETURN') {
+                      return total - Number(operation.sum)
+                    }
+                    return total
+                  }, 0)
+                  .toLocaleString()} смн.
+              </span>
+            </div>
+            <div className="text-sm text-blue-600">{sales.length} операций</div>
           </div>
-          <div className="text-sm text-blue-600">{sales.length} операций</div>
+          <div className="flex justify-between items-center pt-3 border-t border-blue-200">
+            <div className="text-blue-800">
+              <span className="font-semibold">Текущий баланс: </span>
+              <span className="text-xl font-bold">
+                {customerBalance.toLocaleString()} смн.
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

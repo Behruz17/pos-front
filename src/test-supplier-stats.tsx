@@ -1,5 +1,4 @@
 // Тестовый компонент для проверки API
-import React from 'react';
 import { useGetSupplierStatsQuery } from '@/features/suppliers/api/suppliers.api';
 
 const TestSupplierStats = () => {

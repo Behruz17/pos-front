@@ -122,6 +122,8 @@ export const baseApi = createApi({
 
     'DeliveryOperations',
 
+    'Resellers',
+
   ],
 
   endpoints: (builder) => ({
@@ -168,8 +170,24 @@ export const baseApi = createApi({
 
     }),
 
+    createDeliveryPayment: builder.mutation<any, { driverId: number; amount: number; note?: string }>({
+
+      query: ({ driverId, ...body }) => ({
+
+        url: `delivery-operations/${driverId}/payment`,
+
+        method: 'POST',
+
+        body,
+
+      }),
+
+      invalidatesTags: ['DeliveryOperations', 'Suppliers'],
+
+    }),
+
   }),
 
 })
 
-export const { useGetDeliveryOperationsQuery, useUpdateDeliveryCostMutation } = baseApi
+export const { useGetDeliveryOperationsQuery, useUpdateDeliveryCostMutation, useCreateDeliveryPaymentMutation } = baseApi

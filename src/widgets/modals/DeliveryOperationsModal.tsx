@@ -80,6 +80,21 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
     return ((delivery / receipt) * 100).toFixed(2)
   }
 
+  const calculateAveragePercentage = () => {
+    if (!operations) return null
+    const receiptOperations = operations.filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.receipt_amount && op.sum)
+    if (receiptOperations.length === 0) return null
+    
+    const percentages = receiptOperations.map((op: DeliveryOperation) => {
+      const percentage = calculatePercentage(op.sum, op.receipt_amount)
+      return percentage ? parseFloat(percentage) : null
+    }).filter((p: number | null): p is number => p !== null)
+    
+    if (percentages.length === 0) return null
+    const average = percentages.reduce((sum: number, p: number) => sum + p, 0) / percentages.length
+    return average.toFixed(2)
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
@@ -88,6 +103,12 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
           <div>
             <h2 className="text-xl font-semibold text-slate-800">Операции доставщика</h2>
             <p className="text-sm text-slate-500 mt-1">{driverName}</p>
+            {calculateAveragePercentage() && (
+              <div className="mt-2">
+                <span className="text-sm text-slate-600">Средний процент доставки: </span>
+                <span className="text-sm font-semibold text-blue-600">{calculateAveragePercentage()}%</span>
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}

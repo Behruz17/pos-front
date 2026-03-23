@@ -1,4 +1,4 @@
-export type TResellerOperationType = 'RECEIPT' | 'SALE' // | 'RETURN'
+export type TResellerOperationType = 'RECEIPT' | 'SALE' | 'RETURN' | 'PAYMENT_FROM_RESELLER' | 'PAYMENT_TO_RESELLER'
 
 export type TResellerOperationItem = {
   product_id: number
