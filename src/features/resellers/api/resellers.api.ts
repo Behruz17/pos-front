@@ -20,6 +20,12 @@ import type {
 } from '../model/resellerOperationsHistory.types'
 import { resellerDtoSchema } from '../model/resellers.schemas.js'
 import type { TDefaultResponse, TId } from '@/shared/types'
+import type {
+  ResellerStatisticsResponse,
+} from '../model/resellerStatistics.types'
+import {
+  resellerStatisticsResponseSchema,
+} from '../model/resellerStatistics.schemas.js'
 
 const resellersApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -92,6 +98,14 @@ const resellersApi = baseApi.injectEndpoints({
       },
       providesTags: ['Resellers'],
     }),
+    getResellerStatistics: build.query<ResellerStatisticsResponse, { store_id: number }>({
+      query: ({ store_id }) => ({
+        url: `/resellers/statistics?store_id=${store_id}`,
+        method: 'GET',
+      }),
+      transformResponse: (response) => resellerStatisticsResponseSchema.parseAsync(response),
+      providesTags: ['Resellers'],
+    }),
   }),
 })
 
@@ -104,4 +118,5 @@ export const {
   useCreateResellerOperationMutation,
   useCreateResellerPaymentMutation,
   useGetResellerOperationsQuery,
+  useGetResellerStatisticsQuery,
 } = resellersApi

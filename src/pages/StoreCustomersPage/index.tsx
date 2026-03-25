@@ -28,6 +28,7 @@ import { useGetResellersQuery, useDeleteResellerMutation } from '@/features/rese
 import ResellerOperationModal from '@/widgets/modals/ResellerOperationModal'
 import ResellerPaymentModal from '@/widgets/modals/ResellerPaymentModal'
 import ResellerOperationsHistoryModal from '@/widgets/modals/ResellerOperationsHistoryModal'
+import { ResellerStatisticsModal } from '@/widgets/modals/ResellerStatisticsModal'
 
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
@@ -45,6 +46,7 @@ export const StoreCustomersPage = () => {
   const [operationResellerId, setOperationResellerId] = useState<number | null>(null)
   const [paymentResellerId, setPaymentResellerId] = useState<number | null>(null)
   const [historyResellerId, setHistoryResellerId] = useState<number | null>(null)
+  const [showStatisticsModal, setShowStatisticsModal] = useState(false)
 
   const [amount, setAmount] = useState('')
   const [comment, setComment] = useState('')
@@ -792,22 +794,31 @@ export const StoreCustomersPage = () => {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Ресселеры</h3>
-              <button
-                onClick={() => setShowCreateResellerModal(true)}
-                disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                title={
-                  !isAdmin && me?.store_id !== Number(storeId)
-                    ? 'Вы можете добавлять реселлеров только в свой магазин'
-                    : ''
-                }
-              >
-                <Plus size={16} />
-                Добавить реселлера
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowStatisticsModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+                >
+                  <BarChart3 size={16} />
+                  Статистика
+                </button>
+                <button
+                  onClick={() => setShowCreateResellerModal(true)}
+                  disabled={!isAdmin && me?.store_id !== Number(storeId)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  title={
+                    !isAdmin && me?.store_id !== Number(storeId)
+                      ? 'Вы можете добавлять реселлеров только в свой магазин'
+                      : ''
+                  }
+                >
+                  <Plus size={16} />
+                  Добавить реселлера
+                </button>
+              </div>
             </div>
 
             {/* Total Resellers Summary */}
@@ -1528,6 +1539,13 @@ export const StoreCustomersPage = () => {
           }}
         />
       )}
+
+      {/* Reseller Statistics Modal */}
+      <ResellerStatisticsModal
+        isOpen={showStatisticsModal}
+        onClose={() => setShowStatisticsModal(false)}
+        storeId={Number(storeId)}
+      />
     </div>
   )
 }
