@@ -124,6 +124,8 @@ export const baseApi = createApi({
 
     'Resellers',
 
+    'SaleDrafts',
+
   ],
 
   endpoints: (builder) => ({
@@ -154,7 +156,7 @@ export const baseApi = createApi({
 
     }),
 
-    updateDeliveryCost: builder.mutation<any, { receiptId: number; delivery_cost: number; currency?: string; delivery_driver_id: number }>({
+    updateDeliveryCost: builder.mutation<any, { receiptId: number; delivery_cost: number; currency?: string; rate?: number; delivery_driver_id: number }>({
 
       query: ({ receiptId, ...body }) => ({
 

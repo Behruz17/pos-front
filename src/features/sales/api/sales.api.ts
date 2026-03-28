@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation, TRetailDebtorDetail } from '../model/sales.types'
+import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation, TRetailDebtorDetail, TSaleDraft, TCreateSaleDraft, TSaleDraftResponse } from '../model/sales.types'
 
 const salesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -72,7 +72,37 @@ const salesApi = baseApi.injectEndpoints({
       }),
       providesTags: (_result, _error, id) => [{ type: 'RetailDebtors', id }],
     }),
+    // Sale Drafts endpoints
+    getSaleDrafts: build.query<TSaleDraft | null, { store_id?: number } | void>({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params && params.store_id) {
+          searchParams.append('store_id', params.store_id.toString());
+        }
+        const queryString = searchParams.toString();
+        return {
+          url: `/sales/drafts${queryString ? `?${queryString}` : ''}`,
+          method: 'GET',
+        };
+      },
+      providesTags: ['SaleDrafts'],
+    }),
+    createSaleDraft: build.mutation<TSaleDraftResponse, TCreateSaleDraft>({
+      query: (body) => ({
+        url: '/sales/drafts',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['SaleDrafts'],
+    }),
+    deleteSaleDraft: build.mutation<TDefaultResponse, number>({
+      query: (id) => ({
+        url: `/sales/drafts/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['SaleDrafts'],
+    }),
   }),
 })
 
-export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery, useGetRetailDebtorDetailQuery } = salesApi
+export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery, useGetRetailDebtorDetailQuery, useGetSaleDraftsQuery, useCreateSaleDraftMutation, useDeleteSaleDraftMutation } = salesApi

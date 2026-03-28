@@ -98,3 +98,44 @@ export interface TRetailDebtorOperation {
 export interface TRetailDebtorDetail extends TRetailDebtor {
   operations: TRetailDebtorOperation[]
 }
+
+// Sale Draft types
+export interface TSaleDraftItem {
+  product_id: number
+  quantity: number
+  unit_price: number
+}
+
+export interface TSaleDraft {
+  id: number
+  store_id: number
+  warehouse_id: number
+  customer_id?: number
+  customer_name?: string
+  phone?: string
+  items: TSaleDraftItem[]
+  total_amount: number
+  payment_status: 'PAID' | 'DEBT' | 'UNPAID'
+  notes?: string
+  created_at: string
+  updated_at: string
+  store_name?: string
+  warehouse_name?: string
+}
+
+export interface TCreateSaleDraft {
+  store_id: number
+  warehouse_id: number
+  customer_id?: number
+  customer_name?: string
+  phone?: string
+  items: TSaleDraftItem[]
+  payment_status?: 'PAID' | 'DEBT' | 'UNPAID'
+  notes?: string
+}
+
+export interface TSaleDraftResponse {
+  id: number
+  message: string
+  draft: TSaleDraft
+}

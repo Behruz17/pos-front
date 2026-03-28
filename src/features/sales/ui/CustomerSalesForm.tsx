@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Trash2, PackagePlus, AlertTriangle, X } from 'lucide-react'
-import { useCreateSaleMutation } from '../api/sales.api'
+import { Trash2, PackagePlus, AlertTriangle, X, Save, FileText } from 'lucide-react'
+import { useCreateSaleMutation, useCreateSaleDraftMutation, useGetSaleDraftsQuery } from '../api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { toast } from 'sonner'
 
@@ -37,13 +37,16 @@ interface StockError {
 export const CustomerSalesForm = ({
   initialCustomerId,
   initialStoreId,
+  initialWarehouseId = 1,
   onClose,
   onSaleCreated,
-}: CustomerSalesFormProps) => {
+}: CustomerSalesFormProps & { initialWarehouseId?: number }) => {
   const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
   const [stockErrors, setStockErrors] = useState<StockError[]>([])
   const [createSale, { isLoading }] = useCreateSaleMutation()
+  const [createSaleDraft, { isLoading: isSavingDraft }] = useCreateSaleDraftMutation()
+  const { data: draft, isLoading: isLoadingDraft } = useGetSaleDraftsQuery({ store_id: initialStoreId })
   const { data: products = [] } = useGetProductsQuery()
 
   // Refs for keyboard navigation
@@ -94,6 +97,49 @@ export const CustomerSalesForm = ({
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
   const isInvalid = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0)
+
+  const handleLoadDraft = () => {
+    if (!draft) {
+      toast.error('Нет сохраненных черновиков')
+      return
+    }
+
+    setPaymentStatus(draft.payment_status === 'PAID' ? 'PAID' : 'DEBT')
+    setItems(
+      draft.items.map((item) => {
+        const product = products.find((p) => p.id === item.product_id)
+        return {
+          product_id: item.product_id,
+          product_name: product?.name || '',
+          product_code: product?.product_code || null,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        }
+      })
+    )
+    toast.success('Черновик загружен')
+  }
+
+  const handleSaveDraft = async () => {
+    try {
+      await createSaleDraft({
+        store_id: initialStoreId,
+        warehouse_id: initialWarehouseId,
+        customer_id: initialCustomerId,
+        items: items
+          .filter((item) => item.product_id > 0)
+          .map((item) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+          })),
+        payment_status: payment_status === 'DEBT' ? 'UNPAID' : 'PAID',
+      }).unwrap()
+      toast.success('Черновик сохранен')
+    } catch (error) {
+      toast.error('Ошибка при сохранении черновика')
+    }
+  }
 
   const handleSubmit = async () => {
     if (isInvalid) return
@@ -433,6 +479,22 @@ export const CustomerSalesForm = ({
       )}
 
       <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={isSavingDraft}
+          className="flex items-center gap-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-200 disabled:bg-gray-300"
+        >
+          <Save size={16} /> {isSavingDraft ? 'Сохранение...' : 'Сохранить черновик'}
+        </button>
+        <button
+          type="button"
+          onClick={handleLoadDraft}
+          disabled={isLoadingDraft}
+          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 disabled:bg-gray-100"
+        >
+          <FileText size={16} /> {isLoadingDraft ? 'Загрузка...' : 'Загрузить черновик'}
+        </button>
         <button
           type="button"
           disabled={isInvalid || isLoading}

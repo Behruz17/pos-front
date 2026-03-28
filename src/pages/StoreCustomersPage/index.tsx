@@ -14,11 +14,11 @@ import {
 import { useGetStoreFinancialSummaryQuery } from '@/features/stores/api/stores.api'
 import { toast } from 'sonner'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useCreateSaleMutation } from '@/features/sales/api/sales.api'
+import { useCreateSaleMutation, useCreateSaleDraftMutation, useGetSaleDraftsQuery } from '@/features/sales/api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 
 import { SalesDetailModal } from '@/widgets/modals/SalesDetailModal'
-import { Trash2, PackagePlus, Download } from 'lucide-react'
+import { Trash2, PackagePlus, Download, Save, FileText } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import CustomerFormModal from '@/widgets/modals/CustomerFormModal'
 import ResellerFormModal from '@/widgets/modals/ResellerFormModal'
@@ -1104,6 +1104,7 @@ export const StoreCustomersPage = () => {
                 </div>
                 <StoreSalesForm
                   initialStoreId={Number(storeId)}
+                  initialWarehouseId={store.warehouse_id}
                   onClose={() => {
                     setShowSalesForm(false)
                   }}
@@ -1569,6 +1570,7 @@ const emptyItem: StoreSaleItem = {
 
 interface StoreSalesFormProps {
   initialStoreId: number
+  initialWarehouseId: number
   onClose?: () => void
 }
 
@@ -1579,13 +1581,15 @@ interface StockError {
   available: number
 }
 
-const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
+const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSalesFormProps) => {
   const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('PAID')
   const [items, setItems] = useState<StoreSaleItem[]>([emptyItem])
   const [customerName, setCustomerName] = useState('')
   const [phone, setPhone] = useState('')
   const [stockErrors, setStockErrors] = useState<StockError[]>([])
   const [createSale, { isLoading }] = useCreateSaleMutation()
+  const [createSaleDraft, { isLoading: isSavingDraft }] = useCreateSaleDraftMutation()
+  const { data: draft, isLoading: isLoadingDraft } = useGetSaleDraftsQuery({ store_id: initialStoreId })
   const { data: products = [] } = useGetProductsQuery()
   
   // States for customer autocomplete
@@ -1667,6 +1671,48 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
   const isInvalid = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0)
+
+  const handleLoadDraft = () => {
+    if (!draft) {
+      toast.error('Нет сохраненных черновиков')
+      return
+    }
+
+    setPaymentStatus(draft.payment_status === 'PAID' ? 'PAID' : 'DEBT')
+    setItems(
+      draft.items.map((item) => {
+        const product = products.find((p) => p.id === item.product_id)
+        return {
+          product_id: item.product_id,
+          product_name: product?.name || '',
+          product_code: product?.product_code || null,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+        }
+      })
+    )
+    toast.success('Черновик загружен')
+  }
+
+  const handleSaveDraft = async () => {
+    try {
+      await createSaleDraft({
+        store_id: initialStoreId,
+        warehouse_id: initialWarehouseId || 1,
+        items: items
+          .filter((item) => item.product_id > 0)
+          .map((item) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+          })),
+        payment_status: payment_status === 'DEBT' ? 'UNPAID' : 'PAID',
+      }).unwrap()
+      toast.success('Черновик сохранен')
+    } catch (error) {
+      toast.error('Ошибка при сохранении черновика')
+    }
+  }
 
   const handleSubmit = async () => {
     if (isInvalid) return
@@ -2121,6 +2167,22 @@ const StoreSalesForm = ({ initialStoreId, onClose }: StoreSalesFormProps) => {
       </div>
 
       <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={isSavingDraft}
+          className="flex items-center gap-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-200 disabled:bg-gray-300"
+        >
+          <Save size={16} /> {isSavingDraft ? 'Сохранение...' : 'Сохранить черновик'}
+        </button>
+        <button
+          type="button"
+          onClick={handleLoadDraft}
+          disabled={isLoadingDraft}
+          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 disabled:bg-gray-100"
+        >
+          <FileText size={16} /> {isLoadingDraft ? 'Загрузка...' : 'Загрузить черновик'}
+        </button>
         <button
           type="button"
           disabled={isInvalid || isLoading}

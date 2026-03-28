@@ -93,6 +93,7 @@ const AdminReceiptForm = ({
   const [supplierId, setSupplierId] = useState('')
   const [deliveryDriverId, setDeliveryDriverId] = useState('')
   const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
+  const [selectedProductIndices, setSelectedProductIndices] = useState<Set<number>>(new Set())
 
   // State for Excel import
   const [excelImporting, setExcelImporting] = useState(false)
@@ -142,6 +143,8 @@ const AdminReceiptForm = ({
             next.product_name = product.name
             // Always update product_code from the selected product
             next.product_code = product.product_code || ''
+            // Mark this index as having a selected product to hide suggestions
+            setSelectedProductIndices(prev => new Set(prev).add(index))
           }
         }
         
@@ -149,6 +152,12 @@ const AdminReceiptForm = ({
         if (patch.product_id && isNaN(Number(patch.product_id))) {
           next.product_name = patch.product_id; // Ensure product_name matches the entered name
           next.product_code = ''; // Reset product_code for new products
+          // Remove this index from selected products to show suggestions for new products
+          setSelectedProductIndices(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(index)
+            return newSet
+          })
         }
 
         const selling = calcSellingPrice(next.purchase_cost, next.markup_percent)
@@ -162,7 +171,15 @@ const AdminReceiptForm = ({
     )
   }
 
-  const addItem = () => setItems((p) => [...p, emptyItem])
+  const addItem = () => {
+    setItems((p) => [...p, emptyItem])
+    // Clear selected state for the new item
+    setSelectedProductIndices(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(items.length) // The new item will be at index items.length
+      return newSet
+    })
+  }
 
   const removeItem = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i))
 
@@ -171,6 +188,7 @@ const AdminReceiptForm = ({
   const clearAllItems = () => {
     if (window.confirm('Вы уверены, что хотите очистить все товары?')) {
       setItems([emptyItem])
+      setSelectedProductIndices(new Set())
     }
   }
 
@@ -596,6 +614,7 @@ const AdminReceiptForm = ({
       setSupplierId('');
       setDeliveryDriverId('');
       setItems([emptyItem]);
+      setSelectedProductIndices(new Set());
     } catch (error) {
       console.error('Error creating receipt:', error);
       toast.error('Ошибка при оформлении прихода');
@@ -706,6 +725,12 @@ const totalAmount = items.reduce(
                 }
                 onChange={(e) => {
                   const query = e.target.value
+                  // Reset selected state when user starts typing
+                  setSelectedProductIndices(prev => {
+                    const newSet = new Set(prev)
+                    newSet.delete(i)
+                    return newSet
+                  })
                   // Check if this is a product name that needs to be converted to ID
                   const foundProduct = products.find((p) => p.name === query)
                   if (foundProduct) {
@@ -744,6 +769,7 @@ const totalAmount = items.reduce(
                 autoFocus={i === 0}
               />
               {item.product_id &&
+                !selectedProductIndices.has(i) &&
                 products.filter((p) => {
                   const searchValue = item.product_id || ''
                   return (

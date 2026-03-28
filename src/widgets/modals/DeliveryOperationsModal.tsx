@@ -15,7 +15,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
   const { data: operations, isLoading, isError } = useGetDeliveryOperationsQuery({ driverId })
   const [updateDeliveryCost] = useUpdateDeliveryCostMutation()
   const [editingOperation, setEditingOperation] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState({ delivery_cost: '', currency: '' })
+  const [editForm, setEditForm] = useState({ delivery_cost: '', currency: '', rate: '' })
 
   if (!isOpen) return null
 
@@ -23,7 +23,8 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
     setEditingOperation(operation.id)
     setEditForm({
       delivery_cost: operation.sum,
-      currency: operation.currency || ''
+      currency: operation.currency || '',
+      rate: operation.rate?.toString() || ''
     })
   }
 
@@ -33,6 +34,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
         receiptId: operation.stock_receipt_id!,
         delivery_cost: parseFloat(editForm.delivery_cost),
         currency: editForm.currency || undefined,
+        rate: editForm.rate ? parseFloat(editForm.rate) : undefined,
         delivery_driver_id: operation.delivery_driver_id
       }).unwrap()
       
@@ -42,7 +44,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
       }
       
       setEditingOperation(null)
-      setEditForm({ delivery_cost: '', currency: '' })
+      setEditForm({ delivery_cost: '', currency: '', rate: '' })
     } catch (error) {
       console.error('Failed to update delivery cost:', error)
     }
@@ -50,7 +52,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
 
   const handleCancel = () => {
     setEditingOperation(null)
-    setEditForm({ delivery_cost: '', currency: '' })
+    setEditForm({ delivery_cost: '', currency: '', rate: '' })
   }
 
   const formatCurrency = (amount: string | null, currency: string | null = null) => {
@@ -59,7 +61,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
     if (currency) {
       return `${formattedAmount} ${currency}`
     }
-    return `${formattedAmount} с`
+    return `${formattedAmount}`
   }
 
   const formatDate = (dateString: string) => {
@@ -72,21 +74,20 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
     })
   }
 
-  const calculatePercentage = (deliveryCost: string, receiptAmount: string | null) => {
-    if (!receiptAmount || !deliveryCost) return null
+  const calculatePercentage = (deliveryCost: string, convertedSum: number | null) => {
+    if (!convertedSum || !deliveryCost) return null
     const delivery = parseFloat(deliveryCost)
-    const receipt = parseFloat(receiptAmount)
-    if (receipt === 0) return null
-    return ((delivery / receipt) * 100).toFixed(2)
+    if (convertedSum === 0) return null
+    return ((delivery / convertedSum) * 100).toFixed(2)
   }
 
   const calculateAveragePercentage = () => {
     if (!operations) return null
-    const receiptOperations = operations.filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.receipt_amount && op.sum)
+    const receiptOperations = operations.filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.converted_sum && op.sum)
     if (receiptOperations.length === 0) return null
     
     const percentages = receiptOperations.map((op: DeliveryOperation) => {
-      const percentage = calculatePercentage(op.sum, op.receipt_amount)
+      const percentage = calculatePercentage(op.sum, op.converted_sum)
       return percentage ? parseFloat(percentage) : null
     }).filter((p: number | null): p is number => p !== null)
     
@@ -136,8 +137,9 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Тип</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Дата</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">Сумма</th>
-                      <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Валюта</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Курс</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">Сумма прихода</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">Конвертированная сумма</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">%</th>
                       <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Действия</th>
                     </tr>
@@ -164,19 +166,22 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                           {formatDate(operation.date)}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-slate-700">
-                          {formatCurrency(operation.sum, operation.currency)}
+                          {formatCurrency(operation.sum, null)}
                         </td>
                         <td className="px-4 py-3 text-center text-sm text-slate-600">
-                          {operation.currency || '—'}
+                          {operation.rate ? parseFloat(operation.rate).toFixed(2) : '—'}
                         </td>
                         <td className="px-4 py-3 text-right text-sm text-slate-600">
-                          {formatCurrency(operation.receipt_amount, operation.currency)}
+                          {formatCurrency(operation.receipt_amount, null)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm text-slate-600">
+                          {operation.converted_sum ? formatCurrency(operation.converted_sum.toString(), null) : '—'}
                         </td>
                         <td className="px-4 py-3 text-right text-sm text-slate-600">
                           {operation.type === 'RECEIPT' ? (
-                            calculatePercentage(operation.sum, operation.receipt_amount) ? (
+                            calculatePercentage(operation.sum, operation.converted_sum) ? (
                               <span className="font-medium text-blue-600">
-                                {calculatePercentage(operation.sum, operation.receipt_amount)}%
+                                {calculatePercentage(operation.sum, operation.converted_sum)}%
                               </span>
                             ) : (
                               '—'
@@ -196,15 +201,14 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                                   className="w-20 px-2 py-1 border border-slate-300 rounded text-sm"
                                   placeholder="Сумма"
                                 />
-                                <select
-                                  value={editForm.currency}
-                                  onChange={(e) => setEditForm(prev => ({ ...prev, currency: e.target.value }))}
-                                  className="px-2 py-1 border border-slate-300 rounded text-sm"
-                                >
-                                  <option value="somoni">смн</option>
-                                  <option value="yuan">¥</option>
-                                  <option value="dollar">$</option>
-                                </select>
+                                <input
+                                  type="number"
+                                  value={editForm.rate}
+                                  onChange={(e) => setEditForm(prev => ({ ...prev, rate: e.target.value }))}
+                                  className="w-16 px-2 py-1 border border-slate-300 rounded text-sm"
+                                  placeholder="Курс"
+                                  step="0.01"
+                                />
                                 <button
                                   onClick={() => handleSave(operation)}
                                   className="p-1 text-emerald-600 hover:text-emerald-700 transition"
@@ -257,24 +261,36 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                         </span>
                       </div>
                       <div className="font-semibold text-slate-700">
-                        {formatCurrency(operation.sum, operation.currency)}
+                        {formatCurrency(operation.sum, null)}
                       </div>
                     </div>
                     <div className="text-sm text-slate-500">
                       {formatDate(operation.date)}
                     </div>
+                    {operation.rate && (
+                      <div className="mt-2 text-sm">
+                        <span className="text-slate-500">Курс: </span>
+                        <span className="font-medium text-slate-700">{parseFloat(operation.rate).toFixed(2)}</span>
+                      </div>
+                    )}
                     {operation.receipt_amount && (
                       <div className="mt-2 text-sm">
                         <span className="text-slate-500">Сумма прихода: </span>
-                        <span className="font-medium text-slate-700">{formatCurrency(operation.receipt_amount, operation.currency)}</span>
+                        <span className="font-medium text-slate-700">{formatCurrency(operation.receipt_amount, null)}</span>
+                      </div>
+                    )}
+                    {operation.converted_sum && (
+                      <div className="mt-2 text-sm">
+                        <span className="text-slate-500">Конвертированная сумма: </span>
+                        <span className="font-medium text-slate-700">{formatCurrency(operation.converted_sum.toString(), null)}</span>
                       </div>
                     )}
                     {operation.type === 'RECEIPT' && (
                       <div className="mt-2 text-sm">
                         <span className="text-slate-500">% доставки: </span>
-                        {calculatePercentage(operation.sum, operation.receipt_amount) ? (
+                        {calculatePercentage(operation.sum, operation.converted_sum) ? (
                           <span className="font-medium text-blue-600">
-                            {calculatePercentage(operation.sum, operation.receipt_amount)}%
+                            {calculatePercentage(operation.sum, operation.converted_sum)}%
                           </span>
                         ) : (
                           <span className="text-slate-400">—</span>
@@ -296,16 +312,15 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                               />
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-slate-600">Валюта:</span>
-                              <select
-                                value={editForm.currency}
-                                onChange={(e) => setEditForm(prev => ({ ...prev, currency: e.target.value }))}
+                              <span className="text-sm text-slate-600">Курс:</span>
+                              <input
+                                type="number"
+                                value={editForm.rate}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, rate: e.target.value }))}
                                 className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm"
-                              >
-                                <option value="somoni">смн</option>
-                                <option value="yuan">¥</option>
-                                <option value="dollar">$</option>
-                              </select>
+                                placeholder="Курс"
+                                step="0.01"
+                              />
                             </div>
                             <div className="flex gap-2">
                               <button

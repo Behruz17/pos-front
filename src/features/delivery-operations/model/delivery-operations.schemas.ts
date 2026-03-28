@@ -4,6 +4,8 @@ export interface DeliveryOperation {
   stock_receipt_id: number | null;
   sum: string;
   currency: string | null;
+  rate: string | null;
+  converted_sum: number | null;
   type: 'RECEIPT' | 'PAYMENT';
   date: string;
   driver_name: string;
