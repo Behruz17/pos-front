@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TPostProductResponseSuccess, TProductDto, TPutProductCredentials, TMissingProduct } from '../model/products.types'
-import { productDtoSchema } from '../model/products.schemas'
+import { productDtoSchema, missingProductSchema } from '../model/products.schemas'
 import type { TDefaultResponse } from '@/shared/types'
 
 export const productsApi = baseApi.injectEndpoints({
@@ -41,6 +41,7 @@ export const productsApi = baseApi.injectEndpoints({
         url: '/products/missing',
         method: 'GET',
       }),
+      transformResponse: (response) => missingProductSchema.array().parse(response),
       providesTags: ['Products'],
     }),
   }),

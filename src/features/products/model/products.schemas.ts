@@ -22,3 +22,14 @@ export const productDtoSchema = z.object({
         val ?? 'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
     ),
 })
+
+export const missingProductSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  manufacturer: z.string().nullable(),
+  product_code: z.string().nullable(),
+  image: z.string().nullable(),
+  notification_threshold: z.number(),
+  total_stock: z.union([z.number(), z.string()]).transform(Number),
+  last_supplier_id: z.number().nullable(),
+})

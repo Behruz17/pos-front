@@ -32,8 +32,9 @@ export type TMissingProduct = {
   id: number
   name: string
   manufacturer: string | null
-  product_code: string
-  image: string
+  product_code: string | null
+  image: string | null
   notification_threshold: number
   total_stock: number
+  last_supplier_id: number | null
 }

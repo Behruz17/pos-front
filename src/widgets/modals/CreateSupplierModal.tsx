@@ -26,6 +26,7 @@ const CreateSupplierModal = ({ supplierId, onClose, warehouseId }: Props) => {
     name: data?.name || '',
     phone: data?.phone ?? '',
     balance: data?.balance || 0,
+    currency: data?.currency || 'somoni',
   }))
 
   useEffect(() => {
@@ -34,6 +35,7 @@ const CreateSupplierModal = ({ supplierId, onClose, warehouseId }: Props) => {
         name: data.name,
         phone: data.phone ?? '',
         balance: data.balance || 0,
+        currency: data.currency || 'somoni',
       })
     }
   }, [data, isEdit])
@@ -135,6 +137,25 @@ const CreateSupplierModal = ({ supplierId, onClose, warehouseId }: Props) => {
                     "
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-600 mb-1">Валюта</label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => {
+                      setForm({ ...form, currency: e.target.value })
+                    }}
+                    className="
+                      w-full rounded-lg border border-slate-300
+                      px-3 py-2 text-sm
+                      focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                    "
+                  >
+                    <option value="somoni">Сомони</option>
+                    <option value="yuan">Юань</option>
+                    <option value="dollar">Доллар</option>
+                  </select>
                 </div>
               </div>
             </>

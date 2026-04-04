@@ -32,6 +32,8 @@ export type TCreateSupplierCredentials = {
 
   status?: number
 
+  warehouse_id: number
+
 }
 
 export type TUpdateSupplierCredentials = TCreateSupplierCredentials & { id: TId }

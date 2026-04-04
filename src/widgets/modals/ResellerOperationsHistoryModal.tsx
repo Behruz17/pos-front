@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { X, History, PackagePlus, ShoppingCart, RotateCcw } from 'lucide-react'
 import { useGetResellerOperationsQuery } from '@/features/resellers/api/resellers.api'
+import { ResellerOperationDetailsModal } from './ResellerOperationDetailsModal'
 
 type Props = {
   resellerId: number
@@ -9,6 +11,8 @@ type Props = {
 }
 
 const ResellerOperationsHistoryModal = ({ resellerId, resellerName, storeId, onClose }: Props) => {
+  const [selectedOperation, setSelectedOperation] = useState<any>(null)
+  
   const { data, isLoading, isError, error } = useGetResellerOperationsQuery({
     resellerId,
     store_id: storeId,
@@ -100,7 +104,8 @@ const ResellerOperationsHistoryModal = ({ resellerId, resellerName, storeId, onC
               {data.operations.map((operation) => (
                 <div
                   key={operation.id}
-                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border hover:bg-gray-100 transition"
+                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border hover:bg-gray-100 transition cursor-pointer"
+                  onClick={() => setSelectedOperation(operation)}
                 >
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white border flex items-center justify-center">
                     {getOperationIcon(operation.type)}
@@ -156,6 +161,15 @@ const ResellerOperationsHistoryModal = ({ resellerId, resellerName, storeId, onC
           </button>
         </div>
       </div>
+
+      {/* Operation Details Modal */}
+      {selectedOperation && (
+        <ResellerOperationDetailsModal
+          isOpen={!!selectedOperation}
+          operation={selectedOperation}
+          onClose={() => setSelectedOperation(null)}
+        />
+      )}
     </div>
   )
 }
