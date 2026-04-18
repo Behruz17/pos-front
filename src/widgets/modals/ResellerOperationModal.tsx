@@ -1,4 +1,4 @@
-import { X, Save, PackagePlus, ShoppingCart } from 'lucide-react'
+import { X, Save, PackagePlus, ShoppingCart, AlertTriangle } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useCreateResellerOperationMutation } from '@/features/resellers/api/resellers.api'
 import type { TResellerOperationType, TResellerOperationItem } from '@/features/resellers/model/resellerOperations.types'
@@ -20,16 +20,32 @@ interface TOperationItem {
   price: number
 }
 
+interface StockError {
+  productId: number
+  productName: string
+  requested: number
+  available: number
+}
+
 const ResellerOperationModal = ({ resellerId, resellerName, storeId, onClose }: Props) => {
   const [operationType, setOperationType] = useState<TResellerOperationType>('RECEIPT')
   const [note, setNote] = useState('')
   const [items, setItems] = useState<TOperationItem[]>([
     { product_id: 0, product_name: '', product_code: null, quantity: 1, price: 0 }
   ])
+  const [priceInputs, setPriceInputs] = useState<string[]>([''])
+  const [stockErrors, setStockErrors] = useState<StockError[]>([])
 
   const { data: products = [] } = useGetProductsQuery()
   const [createOperation, { isLoading }] = useCreateResellerOperationMutation()
   const [createProduct, { isLoading: isCreatingProduct }] = usePostProductMutation()
+
+  // Синхронизируем priceInputs с items.price
+  useEffect(() => {
+    setPriceInputs(items.map(item => 
+      item.price === 0 ? '' : String(item.price)
+    ))
+  }, [items.length]) // Только при изменении количества элементов
 
   // Refs for keyboard navigation
   const refs = useRef<
@@ -61,8 +77,19 @@ const ResellerOperationModal = ({ resellerId, resellerName, storeId, onClose }: 
 
   const emptyItem: TOperationItem = { product_id: 0, product_name: '', product_code: null, quantity: 1, price: 0 }
 
-  const addItem = () => setItems(prev => [...prev, emptyItem])
-  const removeItem = (index: number) => setItems(prev => prev.filter((_, i) => i !== index))
+  const addItem = () => {
+    setItems(prev => [...prev, emptyItem])
+    setPriceInputs(prev => [...prev, ''])
+  }
+  const removeItem = (index: number) => {
+    setItems(prev => prev.filter((_, i) => i !== index))
+    setPriceInputs(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Reset stock errors when operation type changes
+  useEffect(() => {
+    setStockErrors([])
+  }, [operationType])
   const updateItem = (index: number, patch: Partial<TOperationItem>) => {
     setItems(prev => prev.map((item, i) => 
       i === index ? { ...item, ...patch } : item
@@ -198,9 +225,40 @@ const ResellerOperationModal = ({ resellerId, resellerName, storeId, onClose }: 
         }
       }).unwrap()
 
+      setStockErrors([])
       onClose()
-    } catch (error) {
-      // Error handling
+    } catch (error: any) {
+      console.log('Error details:', error)
+      
+      // Handle stock errors from backend
+      const errorMessage = error?.data?.error || error?.data?.message || error?.message || error?.error
+      
+      if (errorMessage?.includes('Not enough stock')) {
+        // Parse the error message to extract product info (updated regex to handle negative numbers)
+        const errorMatch = errorMessage.match(/Not enough stock for product ID: (\d+). Requested: (\d+), Available: (-?\d+)/)
+        
+        if (errorMatch) {
+          const productId = parseInt(errorMatch[1])
+          const requested = parseInt(errorMatch[2])
+          const available = parseInt(errorMatch[3]) // Can be negative
+          
+          const product = products.find(p => p.id === productId)
+          const productName = product?.name || `Товар #${productId}`
+          
+          setStockErrors([{
+            productId,
+            productName,
+            requested,
+            available
+          }])
+        } else {
+          // Fallback if regex doesn't match
+          toast.error('Недостаточно товара на складе')
+        }
+      } else {
+        // Handle other errors
+        toast.error(errorMessage || 'Ошибка при создании операции')
+      }
     }
   }
 
@@ -371,13 +429,26 @@ const ResellerOperationModal = ({ resellerId, resellerName, storeId, onClose }: 
                         ref={refs.current[index]?.priceRef}
                         type="text"
                         inputMode="decimal"
-                        pattern="[0-9]*(.[0-9]+)?"
-                        value={item.price === 0 ? '' : item.price}
+                        value={priceInputs[index] || ''}
                         onChange={(e) => {
-                          const value = e.target.value.replace(/^0+(?=\d)/, '')
-                          const numValue = Number(value)
-                          if (!isNaN(numValue) && numValue >= 0) {
-                            updateItem(index, { price: numValue })
+                          const value = e.target.value
+                          // Разрешаем пустую строку, точку и валидные числа
+                          if (value === '' || value === '.' || /^\d*\.?\d*$/.test(value)) {
+                            setPriceInputs(prev => {
+                              const newInputs = [...prev]
+                              newInputs[index] = value
+                              return newInputs
+                            })
+                            
+                            // Обновляем price только если это валидное число (не точка)
+                            if (value !== '' && value !== '.') {
+                              const numValue = Number(value)
+                              if (!isNaN(numValue) && numValue >= 0) {
+                                updateItem(index, { price: numValue })
+                              }
+                            } else if (value === '') {
+                              updateItem(index, { price: 0 })
+                            }
                           }
                         }}
                         onKeyDown={(e) => handleKeyDown(e, index, 'price')}
@@ -408,6 +479,71 @@ const ResellerOperationModal = ({ resellerId, resellerName, storeId, onClose }: 
               })}
             </div>
           </div>
+
+          {/* Stock Error Display */}
+          {stockErrors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-red-800">
+                      Недостаточно товара на складе
+                    </h3>
+                    <button
+                      onClick={() => setStockErrors([])}
+                      className="text-red-600 hover:text-red-800 transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {stockErrors.map((error, index) => (
+                      <div key={index} className="bg-white rounded-lg p-4 border border-red-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-gray-900">{error.productName}</span>
+                          <span className="text-sm text-gray-500">ID: {error.productId}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">Запрошено:</span>
+                            <span className="ml-2 font-semibold text-red-600">
+                              {error.requested > 0 ? `${error.requested} шт.` : 'Неизвестно'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Доступно:</span>
+                            <span className="ml-2 font-semibold text-green-600">
+                              {error.available > 0 ? `${error.available} шт.` : 'Неизвестно'}
+                            </span>
+                          </div>
+                        </div>
+                        {error.requested === 0 && error.available === 0 && (
+                          <div className="mt-2 text-xs text-red-600 font-medium">
+                            Недостаточно товара на складе. Проверьте доступное количество.
+                          </div>
+                        )}
+                        {error.available === 0 && (
+                          <div className="mt-2 text-xs text-red-600 font-medium">
+                            Товар полностью отсутствует на складе
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-red-100 rounded-lg">
+                    <p className="text-sm text-red-800">
+                      <strong>Рекомендация:</strong> Уменьшите количество товара или выберите другой товар для продолжения продажи.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Total */}
           <div className="bg-slate-50 rounded-xl p-4">
