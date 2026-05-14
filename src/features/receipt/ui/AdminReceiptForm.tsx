@@ -41,6 +41,7 @@ const emptyItem: TReceiptItem & { markup_percent: string } = {
 interface ExcelReceiptItem {
   // Russian column names (exact match from your data)
   Товар?: string
+  Артикул?: string
   Коробки?: string | number
   'Шт. в кор.'?: string | number
   'Отд. шт.'?: string | number
@@ -52,6 +53,7 @@ interface ExcelReceiptItem {
   'Объем м3'?: string | number
   // Russian column names (lowercase variations)
   товар?: string
+  артикул?: string
   коробки?: string | number
   'шт.'?: string | number
   'отд шт'?: string | number
@@ -64,6 +66,7 @@ interface ExcelReceiptItem {
   // English column names (alternative)
   product_name?: string
   product_id?: string
+  product_code?: string
   boxes_qty?: string | number
   pieces_per_box?: string | number
   loose_pieces?: string | number
@@ -94,6 +97,8 @@ const AdminReceiptForm = ({
   const [deliveryDriverId, setDeliveryDriverId] = useState('')
   const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
   const [selectedProductIndices, setSelectedProductIndices] = useState<Set<number>>(new Set())
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // State for Excel import
   const [excelImporting, setExcelImporting] = useState(false)
@@ -289,12 +294,12 @@ const AdminReceiptForm = ({
                 if (foundProduct) {
                   productId = foundProduct.id.toString()
                   productName = foundProduct.name
-                  productCode = foundProduct.product_code || ''
+                  productCode = String(row.product_code || row['Артикул'] || row['артикул'] || foundProduct.product_code || '')
                 } else {
                   // Product not found - treat as new product
                   productId = productIdentifier
                   productName = productIdentifier
-                  productCode = (row as any).product_code || ''
+                  productCode = String(row.product_code || row['Артикул'] || row['артикул'] || '')
                   warnings.push(`Строка ${index + 1}: Товар "${productIdentifier}" не найден, будет создан как новый`)
                 }
               } else {
@@ -512,7 +517,9 @@ const AdminReceiptForm = ({
   }
 
   const onSubmit = async () => {
-    if (isInvalid) {
+    console.log('onSubmit called', { isInvalid, isSubmitting, supplierId, preselectedWarehouseId, items })
+    if (isInvalid || isSubmitting) {
+      console.log('Early return due to validation', { isInvalid, isSubmitting })
       return;
     }
 
@@ -526,15 +533,30 @@ const AdminReceiptForm = ({
     // Check for duplicate product codes in the form
     const productCodes = items.map(item => item.product_code.trim()).filter(code => code !== '');
     const uniqueCodes = new Set(productCodes);
+    console.log('Duplicate check', { productCodes, uniqueCodes, productCodesLength: productCodes.length, uniqueCodesSize: uniqueCodes.size })
     if (productCodes.length !== uniqueCodes.size) {
-      toast.error('Ошибка: Обнаружены повторяющиеся артикулы в форме');
+      console.log('Duplicate codes found, showing error toast')
+      // Find which codes are duplicated
+      const codeCounts = productCodes.reduce((acc, code) => {
+        acc[code] = (acc[code] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+      const duplicatedCodes = Object.entries(codeCounts).filter(([_, count]) => count > 1)
+      const errorMessage = `Ошибка: Обнаружены повторяющиеся артикулы в форме:\n${duplicatedCodes.map(([code, count]) => `- "${code}" (${count} раз)`).join('\n')}`
+      console.log('Duplicated codes:', duplicatedCodes)
+      toast.error(errorMessage);
+      alert(errorMessage)
       return;
     }
 
     // Skip checking for duplicate product codes against existing products
     // Only check for duplicates within the form items themselves
 
+    console.log('Setting isSubmitting to true')
+    setIsSubmitting(true)
+
     try {
+      console.log('Starting product creation/update loop')
       // Check if any items have non-existent products and create them first
       const updatedItems = [...items];
       
@@ -618,6 +640,8 @@ const AdminReceiptForm = ({
     } catch (error) {
       console.error('Error creating receipt:', error);
       toast.error('Ошибка при оформлении прихода');
+    } finally {
+      setIsSubmitting(false)
     }
   }
 const totalAmount = items.reduce(
@@ -740,6 +764,8 @@ const totalAmount = items.reduce(
                     updateItem(i, { product_id: query })
                   }
                 }}
+                onFocus={() => setFocusedRowIndex(i)}
+                onBlur={() => setFocusedRowIndex(null)}
                 onKeyDown={(e) => {
                   // Handle Enter key to select the first suggestion if available
                   if (e.key === 'Enter') {
@@ -770,6 +796,7 @@ const totalAmount = items.reduce(
               />
               {item.product_id &&
                 !selectedProductIndices.has(i) &&
+                focusedRowIndex === i &&
                 products.filter((p) => {
                   const searchValue = item.product_id || ''
                   return (
@@ -978,14 +1005,17 @@ const totalAmount = items.reduce(
 
       <div className="flex flex-wrap gap-3 pt-4 items-center">
         <button
-          disabled={isInvalid || isLoading || isCreatingProduct}
-          onClick={onSubmit}
+          disabled={isInvalid || isLoading || isCreatingProduct || isSubmitting}
+          onClick={() => {
+            console.log('Button clicked', { isInvalid, isLoading, isCreatingProduct, isSubmitting })
+            onSubmit()
+          }}
           className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl disabled:bg-gray-400 hover:bg-blue-700 transition-colors disabled:cursor-not-allowed"
         >
-          {(isLoading || isCreatingProduct) ? (
+          {(isLoading || isCreatingProduct || isSubmitting) ? (
             <>
               <RotateCw size={16} className="animate-spin" />
-              {isLoading ? 'Оформление прихода...' : 'Создание продукта...'}
+              {isSubmitting ? 'Оформление прихода...' : isCreatingProduct ? 'Создание продукта...' : 'Оформление прихода...'}
             </>
           ) : (
             <>
