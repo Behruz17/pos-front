@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router'
 import { useGetStoreCustomersQuery } from '@/features/stores/api/stores.api'
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { paths } from '@/app/routers/constants'
-import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet, AlertTriangle, X, Building2, History } from 'lucide-react'
+import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet, AlertTriangle, X, Building2, History, Search } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useGetExpensesQuery, useCreateExpenseMutation } from '@/features/expenses/api/expenses.api'
 import {
@@ -47,6 +47,7 @@ export const StoreCustomersPage = () => {
   const [paymentResellerId, setPaymentResellerId] = useState<number | null>(null)
   const [historyResellerId, setHistoryResellerId] = useState<number | null>(null)
   const [showStatisticsModal, setShowStatisticsModal] = useState(false)
+  const [retailDebtorSearch, setRetailDebtorSearch] = useState('')
 
   const [amount, setAmount] = useState('')
   const [comment, setComment] = useState('')
@@ -115,6 +116,10 @@ export const StoreCustomersPage = () => {
   }
 
   const { store, customers } = data
+  const retailDebtorSearchValue = retailDebtorSearch.trim().toLowerCase()
+  const filteredRetailDebtors = retailDebtorSearchValue
+    ? retailDebtors.filter((debtor) => debtor.customer_name.toLowerCase().includes(retailDebtorSearchValue))
+    : retailDebtors
 
   // Compute sales/returns totals and counts. Treat RETURN as a payment.
   const salesCount = storeSales.filter((t) => t.type === 'SALE').length
@@ -688,6 +693,25 @@ export const StoreCustomersPage = () => {
           <div>
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Долги в розницу</h3>
 
+            <div className="relative max-w-sm mb-4">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={retailDebtorSearch}
+                onChange={(e) => setRetailDebtorSearch(e.target.value)}
+                placeholder="Поиск по имени должника"
+                className="w-full rounded-xl border border-slate-300 pl-9 pr-9 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+              />
+              {retailDebtorSearch && (
+                <button
+                  onClick={() => setRetailDebtorSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label="Очистить поиск"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
             {/* Total Remaining Balance Summary */}
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
               <div className="flex justify-between items-center">
@@ -699,12 +723,16 @@ export const StoreCustomersPage = () => {
                       .toFixed(2)}
                   </span>
                 </div>
-                <div className="text-sm text-red-600">{retailDebtors.length} должник(ов)</div>
+                <div className="text-sm text-red-600">
+                  {retailDebtorSearchValue ? `${filteredRetailDebtors.length} из ${retailDebtors.length}` : retailDebtors.length} должник(ов)
+                </div>
               </div>
             </div>
 
             {retailDebtors.length === 0 ? (
               <div className="text-center py-10 text-slate-500">Нет розничных должников</div>
+            ) : filteredRetailDebtors.length === 0 ? (
+              <div className="text-center py-10 text-slate-500">Должники не найдены</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
@@ -734,7 +762,7 @@ export const StoreCustomersPage = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
-                    {[...retailDebtors]
+                    {[...filteredRetailDebtors]
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .map((debtor) => (
                         <tr

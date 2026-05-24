@@ -1,5 +1,7 @@
 import { useGetWarehouseProductsQuery, useGetWarehouseSuppliersQuery, useGetWarehouseDeliveryDriversQuery, useCreateDeliveryDriverMutation, useUpdateDeliveryDriverMutation, useDeleteDeliveryDriverMutation } from '@/features/warehouses/api/warehouses.api'
 
+import { usePutWarehouseStockMutation } from '@/features/remain/api/stock.api'
+
 import { useGetSupplierOperationsQuery } from '@/features/suppliers/api/suppliers.api'
 
 import { SupplierPaymentModal } from '@/widgets/modals/SupplierPaymentModal';
@@ -21,7 +23,7 @@ import { ProductImage } from '@/shared/ui/ProductImageю'
 
 import { Td, Th } from '@/shared/ui/Table'
 
-import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus, Pencil, BarChart3, User, Trash2, Plus, Phone, CreditCard, History } from 'lucide-react'
+import { Package, Search, Truck, ArrowLeft, DollarSign, PackagePlus, Pencil, BarChart3, User, Trash2, Plus, Phone, CreditCard, History, X } from 'lucide-react'
 
 import { useMemo, useState } from 'react'
 
@@ -93,9 +95,13 @@ const TabComponent = ({
 
 )
 
-
-
-
+type StockEditProduct = {
+  id: number
+  product_name: string
+  total_pieces: number
+  weight_kg: number
+  volume_cbm: number
+}
 
 export const WarehouseProducts = ({
 
@@ -134,6 +140,10 @@ export const WarehouseProducts = ({
   const [addingSupplier, setAddingSupplier] = useState<boolean>(false)
 
   const [showStatsModal, setShowStatsModal] = useState<boolean>(false)
+
+  const [stockForEdit, setStockForEdit] = useState<StockEditProduct | null>(null)
+
+  const [stockTotals, setStockTotals] = useState<Record<number, number>>({})
 
   // Delivery drivers state
   const [addingDriver, setAddingDriver] = useState<boolean>(false)
@@ -517,6 +527,8 @@ export const WarehouseProducts = ({
 
                     <Th right>Штук</Th>
 
+                    {isAdmin && <Th right>Действия</Th>}
+
                   </tr>
 
                 </thead>
@@ -575,9 +587,26 @@ export const WarehouseProducts = ({
 
                       <Td right className="font-semibold text-slate-700">
 
-                        {p.total_pieces}
+                        {stockTotals[p.id] ?? p.total_pieces}
 
                       </Td>
+
+                      {isAdmin && (
+                      <Td right>
+
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setStockForEdit({ ...p, total_pieces: stockTotals[p.id] ?? p.total_pieces })
+                          }}
+                          className="inline-flex items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:border-blue-300 hover:text-blue-600"
+                          title="Изменить остаток"
+                        >
+                          <Pencil size={16} />
+                        </button>
+
+                      </Td>
+                      )}
 
                     </tr>
 
@@ -601,13 +630,13 @@ export const WarehouseProducts = ({
 
               {products.map((p) => (
 
-                <button
+                <div
 
                   key={p.id}
 
                   onClick={() => onSelectProduct(p.product_id)}
 
-                  className="w-full rounded-xl border border-slate-200 p-4 hover:bg-blue-50 transition"
+                  className="w-full cursor-pointer rounded-xl border border-slate-200 p-4 hover:bg-blue-50 transition"
 
                 >
 
@@ -643,13 +672,27 @@ export const WarehouseProducts = ({
 
 
 
-                      <div className="mt-2 text-sm font-semibold text-slate-700">Штук: {p.total_pieces}</div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-slate-700">Штук: {stockTotals[p.id] ?? p.total_pieces}</div>
+                        {isAdmin && (
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setStockForEdit({ ...p, total_pieces: stockTotals[p.id] ?? p.total_pieces })
+                            }}
+                            className="inline-flex items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:border-blue-300 hover:text-blue-600"
+                            title="Изменить остаток"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        )}
+                      </div>
 
                     </div>
 
                   </div>
 
-                </button>
+                </div>
 
               ))}
 
@@ -1660,8 +1703,103 @@ export const WarehouseProducts = ({
         />
       )}
 
+      {stockForEdit && (
+        <QuickEditStockModal
+          stock={stockForEdit}
+          onClose={() => setStockForEdit(null)}
+          onSaved={(id, totalPieces) => {
+            setStockTotals((current) => ({ ...current, [id]: totalPieces }))
+            setStockForEdit(null)
+          }}
+        />
+      )}
+
     </div>
 
   )
 
+}
+
+const QuickEditStockModal = ({
+  stock,
+  onClose,
+  onSaved,
+}: {
+  stock: StockEditProduct
+  onClose: () => void
+  onSaved: (id: number, totalPieces: number) => void
+}) => {
+  const [updateStock, { isLoading }] = usePutWarehouseStockMutation()
+  const [newTotal, setNewTotal] = useState(stock.total_pieces.toString())
+
+  const onSubmit = async () => {
+    await updateStock({
+      id: stock.id,
+      body: {
+        total_pieces: Number(newTotal),
+        weight_kg: Number(stock.weight_kg),
+        volume_cbm: Number(stock.volume_cbm),
+        reason: 'Корректировка остатка',
+      },
+    }).unwrap()
+
+    onSaved(stock.id, Number(newTotal))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Изменить остаток</h2>
+            <p className="text-sm text-slate-500">{stock.product_name}</p>
+          </div>
+
+          <button onClick={onClose} className="text-slate-400 transition hover:text-slate-600">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-600">Текущий остаток</span>
+            <input
+              value={stock.total_pieces}
+              readOnly
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-600">Новый остаток</span>
+            <input
+              type="number"
+              min={0}
+              value={newTotal}
+              onChange={(event) => setNewTotal(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-3 rounded-b-2xl border-t border-slate-200 bg-slate-50 px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-200"
+          >
+            Отмена
+          </button>
+
+          <button
+            onClick={onSubmit}
+            disabled={isLoading || newTotal === ''}
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading ? 'Сохранение...' : 'Сохранить'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }

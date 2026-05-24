@@ -54,6 +54,7 @@ const warehousesApi = baseApi.injectEndpoints({
         url: `/warehouses/${id}/products`,
         method: 'GET',
       }),
+      providesTags: ['WarehouseStock'],
       transformResponse: (response: unknown) => {
         try {
           const result = warehouseProductsSchema.parse(response);
