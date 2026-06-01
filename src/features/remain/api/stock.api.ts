@@ -21,7 +21,7 @@ const stockApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['WarehouseStock'],
     }),
-    postMoveStock: build.mutation<{ message: string }, TPostMoveCredentials>({
+    postMoveStock: build.mutation<{ message: string; moved_items?: number }, TPostMoveCredentials>({
       query: (body) => ({
         url: '/warehouse/stock/move',
         method: 'POST',

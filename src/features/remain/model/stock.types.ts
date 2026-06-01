@@ -11,7 +11,13 @@ export type TEditStockDto = {
   volume_cbm: number
   reason?: string
 }
-export type TPostMoveCredentials = {
+export type TMoveStockItem = {
+  product_id: number
+  total_pieces: number
+  weight_kg: number
+  volume_cbm: number
+}
+export type TPostSingleMoveCredentials = {
   from_warehouse_id: number
   to_warehouse_id: number
   product_id: number
@@ -20,5 +26,12 @@ export type TPostMoveCredentials = {
   volume_cbm: number
   reason: string
 }
+export type TPostMultiMoveCredentials = {
+  from_warehouse_id: number
+  to_warehouse_id: number
+  items: TMoveStockItem[]
+  reason: string
+}
+export type TPostMoveCredentials = TPostSingleMoveCredentials | TPostMultiMoveCredentials
 
 export type TStockChangeType = THistoryStock['change_type']

@@ -7,11 +7,14 @@ import {
 import CreateWarehouseModal from '@/widgets/modals/CreateWarehouse'
 import DeleteModal from '@/widgets/modals/DeleteModal'
 import EditWarehouseModal from '@/widgets/modals/EditWarehouseModal'
-import { Plus, Warehouse, Trash2, Pencil } from 'lucide-react'
+import { Plus, Warehouse, Trash2, Pencil, ArrowRightLeft } from 'lucide-react'
 import { useState } from 'react'
 import type { TWarehouse } from '@/features/warehouses/model/warehouses.types'
+import { useNavigate } from 'react-router'
+import { paths } from '@/app/routers/constants'
 
 export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => {
+  const navigate = useNavigate()
   const { data: warehouses = [], isLoading } = useGetWarehousesQuery()
   const [deleteWarehouse, { isLoading: deleteLoading }] = useDeleteWarehouseMutation()
   const [putWarehouse] = usePutWarehouseMutation()
@@ -50,9 +53,28 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
           <p className="text-xs sm:text-sm text-slate-500">Список доступных складов</p>
         </div>
         {isAdmin && (
-          <button
-            onClick={() => setModalOpen(true)}
-            className="
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate(paths.warehousesStockMove())}
+              className="
+              cursor-pointer
+          inline-flex items-center gap-1
+          px-3 py-2
+          rounded-xl
+          border border-slate-300
+          bg-white
+          text-sm font-medium text-slate-700
+          hover:bg-blue-50 hover:border-blue-500 hover:text-blue-600
+          focus:outline-none focus:ring-2 focus:ring-blue-500
+          transition
+        "
+            >
+              <ArrowRightLeft size={16} />
+              <span className="hidden sm:inline">Переместить товары</span>
+            </button>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="
             cursor-pointer
         inline-flex items-center gap-1
         px-3 py-2  
@@ -64,10 +86,11 @@ export const Warehouses = ({ onSelect }: { onSelect: (id: number) => void }) => 
         focus:outline-none focus:ring-2 focus:ring-blue-500
         transition
       "
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline ">Добавить склад</span>
-          </button>
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline ">Добавить склад</span>
+            </button>
+          </div>
         )}
       </div>
 

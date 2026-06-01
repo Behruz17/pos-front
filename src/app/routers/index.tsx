@@ -16,6 +16,7 @@ import InventoryPage from '@/pages/InventoryPage'
 import { StoresPage } from '@/pages/StoresPage'
 import SuppliersPage from '@/pages/SuppliersPage'
 import WarehouseStockPage from '@/pages/WarehouseStockPage'
+import WarehouseStockMovePage from '@/pages/WarehouseStockMovePage'
 import ProductsPage from '@/pages/ProductPage'
 import StoreCustomersPage from '@/pages/StoreCustomersPage'
 import CustomerSalesPage from '@/pages/CustomerSalesPage'
@@ -62,6 +63,10 @@ export const router = createBrowserRouter([
       {
         path: paths.customers(),
         element: <CustomersPage />,
+      },
+      {
+        path: paths.warehousesStockMove(),
+        element: <WarehouseStockMovePage />,
       },
       {
         path: paths.warehousesStock(),
