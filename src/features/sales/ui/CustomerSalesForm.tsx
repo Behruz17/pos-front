@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { Trash2, PackagePlus, AlertTriangle, X, Save, FileText } from 'lucide-react'
-import { useCreateSaleMutation, useCreateSaleDraftMutation, useGetSaleDraftsQuery } from '../api/sales.api'
+import { Trash2, PackagePlus, AlertTriangle, X, Save, FileText, ChevronDown } from 'lucide-react'
+import { useCreateSaleMutation, useCreateSaleDraftMutation, useGetSaleDraftsQuery, useDeleteSaleDraftMutation } from '../api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { toast } from 'sonner'
+import type { TSaleDraft } from '../model/sales.types'
 
 interface TSaleItem {
   product_id: number
@@ -44,9 +45,15 @@ export const CustomerSalesForm = ({
   const [payment_status, setPaymentStatus] = useState<'PAID' | 'DEBT'>('DEBT')
   const [items, setItems] = useState<TSaleItem[]>([emptyItem])
   const [stockErrors, setStockErrors] = useState<StockError[]>([])
+  const [showDraftList, setShowDraftList] = useState(false)
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const [createSaleDraft, { isLoading: isSavingDraft }] = useCreateSaleDraftMutation()
-  const { data: draft, isLoading: isLoadingDraft } = useGetSaleDraftsQuery({ store_id: initialStoreId })
+  const [deleteSaleDraft] = useDeleteSaleDraftMutation()
+  const { data: draftsData, isLoading: isLoadingDraft } = useGetSaleDraftsQuery({
+    store_id: initialStoreId,
+    customer_id: initialCustomerId,
+  })
+  const drafts: TSaleDraft[] = Array.isArray(draftsData) ? draftsData : []
   const { data: products = [] } = useGetProductsQuery()
 
   // Refs for keyboard navigation
@@ -98,12 +105,7 @@ export const CustomerSalesForm = ({
 
   const isInvalid = items.some((i) => !i.product_id || i.quantity <= 0 || i.unit_price <= 0)
 
-  const handleLoadDraft = () => {
-    if (!draft) {
-      toast.error('Нет сохраненных черновиков')
-      return
-    }
-
+  const applyDraft = (draft: TSaleDraft) => {
     setPaymentStatus(draft.payment_status === 'PAID' ? 'PAID' : 'DEBT')
     setItems(
       draft.items.map((item) => {
@@ -117,7 +119,30 @@ export const CustomerSalesForm = ({
         }
       })
     )
+    setShowDraftList(false)
     toast.success('Черновик загружен')
+  }
+
+  const handleLoadDraftClick = () => {
+    if (drafts.length === 0) {
+      toast.error('Нет сохраненных черновиков')
+      return
+    }
+    if (drafts.length === 1) {
+      applyDraft(drafts[0])
+      return
+    }
+    setShowDraftList((prev) => !prev)
+  }
+
+  const handleDeleteDraft = async (e: React.MouseEvent, draftId: number) => {
+    e.stopPropagation()
+    try {
+      await deleteSaleDraft(draftId).unwrap()
+      toast.success('Черновик удален')
+    } catch {
+      toast.error('Ошибка при удалении черновика')
+    }
   }
 
   const handleSaveDraft = async () => {
@@ -478,7 +503,7 @@ export const CustomerSalesForm = ({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 relative">
         <button
           type="button"
           onClick={handleSaveDraft}
@@ -487,14 +512,54 @@ export const CustomerSalesForm = ({
         >
           <Save size={16} /> {isSavingDraft ? 'Сохранение...' : 'Сохранить черновик'}
         </button>
-        <button
-          type="button"
-          onClick={handleLoadDraft}
-          disabled={isLoadingDraft}
-          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 disabled:bg-gray-100"
-        >
-          <FileText size={16} /> {isLoadingDraft ? 'Загрузка...' : 'Загрузить черновик'}
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={handleLoadDraftClick}
+            disabled={isLoadingDraft}
+            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-50 disabled:bg-gray-100"
+          >
+            <FileText size={16} />
+            {isLoadingDraft
+              ? 'Загрузка...'
+              : drafts.length > 0
+                ? `Черновики (${drafts.length})`
+                : 'Загрузить черновик'}
+            {drafts.length > 1 && <ChevronDown size={14} />}
+          </button>
+          {showDraftList && drafts.length > 1 && (
+            <div className="absolute bottom-full mb-2 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-lg min-w-64">
+              {drafts.map((d) => (
+                <div
+                  key={d.id}
+                  onClick={() => applyDraft(d)}
+                  className="flex items-center justify-between p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">
+                      {d.items.length} товар{d.items.length !== 1 ? 'а' : ''} · {d.total_amount.toLocaleString()} с
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(d.updated_at).toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => handleDeleteDraft(e, d.id)}
+                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           disabled={isInvalid || isLoading}

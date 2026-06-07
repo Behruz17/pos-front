@@ -1617,9 +1617,10 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
   const [stockErrors, setStockErrors] = useState<StockError[]>([])
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const [createSaleDraft, { isLoading: isSavingDraft }] = useCreateSaleDraftMutation()
-  const { data: draft, isLoading: isLoadingDraft } = useGetSaleDraftsQuery({ store_id: initialStoreId })
+  const { data: draftData, isLoading: isLoadingDraft } = useGetSaleDraftsQuery({ store_id: initialStoreId })
+  const draft = Array.isArray(draftData) ? draftData[0] ?? null : draftData
   const { data: products = [] } = useGetProductsQuery()
-  
+
   // States for customer autocomplete
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false)
   

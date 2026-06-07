@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation, TRetailDebtorDetail, TSaleDraft, TCreateSaleDraft, TSaleDraftResponse } from '../model/sales.types'
+import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation, TRetailDebtorDetail, TCreateSaleDraft, TSaleDraftResponse, TSaleDraftQueryResult } from '../model/sales.types'
 
 const salesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -73,11 +73,12 @@ const salesApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: 'RetailDebtors', id }],
     }),
     // Sale Drafts endpoints
-    getSaleDrafts: build.query<TSaleDraft | null, { store_id?: number } | void>({
+    getSaleDrafts: build.query<TSaleDraftQueryResult, { store_id?: number; customer_id?: number } | void>({
       query: (params) => {
         const searchParams = new URLSearchParams();
-        if (params && params.store_id) {
-          searchParams.append('store_id', params.store_id.toString());
+        if (params && typeof params === 'object') {
+          if (params.store_id) searchParams.append('store_id', params.store_id.toString());
+          if (params.customer_id) searchParams.append('customer_id', params.customer_id.toString());
         }
         const queryString = searchParams.toString();
         return {

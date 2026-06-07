@@ -139,3 +139,10 @@ export interface TSaleDraftResponse {
   message: string
   draft: TSaleDraft
 }
+
+export type TSaleDraftQueryParams = {
+  store_id?: number
+  customer_id?: number
+}
+
+export type TSaleDraftQueryResult = TSaleDraft | TSaleDraft[] | null
