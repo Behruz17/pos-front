@@ -1,4 +1,7 @@
 import z from 'zod'
+import { env } from '@/shared/env'
+
+const serverOrigin = env.VITE_BASE_SERVER_URL.replace(/\/api$/, '')
 
 export const productDtoSchema = z.object({
   id: z.number(),
@@ -17,10 +20,11 @@ export const productDtoSchema = z.object({
   image: z
     .string()
     .nullable()
-    .transform(
-      (val) =>
-        val ?? 'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
-    ),
+    .transform((val) => {
+      if (!val) return 'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
+      if (val.startsWith('/')) return `${serverOrigin}${val}`
+      return val
+    }),
 })
 
 export const missingProductSchema = z.object({

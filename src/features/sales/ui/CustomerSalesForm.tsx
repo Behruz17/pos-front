@@ -125,7 +125,7 @@ export const CustomerSalesForm = ({
 
   const handleLoadDraftClick = () => {
     if (drafts.length === 0) {
-      toast.error('Нет сохраненных черновиков')
+      alert('Нет сохраненных черновиков')
       return
     }
     if (drafts.length === 1) {

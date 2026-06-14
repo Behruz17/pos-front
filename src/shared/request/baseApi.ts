@@ -28,10 +28,6 @@ const rawBaseQuery = fetchBaseQuery({
 
   prepareHeaders(headers) {
 
-    headers.set('Content-Type', 'application/json')
-
-
-
     const token = Cookie.get('token')
 
 

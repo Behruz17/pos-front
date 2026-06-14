@@ -33,6 +33,7 @@ export interface TCreateSale {
   phone?: string
   store_id: number
   payment_status?: 'PAID' | 'DEBT'
+  debt_deadline?: string | null
   items: Omit<TSaleItem, 'id' | 'product_name' | 'manufacturer' | 'total_price'>[]
 }
 
@@ -71,6 +72,10 @@ export interface TRetailDebtor {
   customer_name: string
   phone: string
   created_at: string
+  debt_deadline: string | null
+  is_overdue: 0 | 1
+  is_blacklisted: 0 | 1
+  blacklist_reason: string | null
   total_debt: number
   total_paid: number
   remaining_balance: number
@@ -96,6 +101,7 @@ export interface TRetailDebtorOperation {
 }
 
 export interface TRetailDebtorDetail extends TRetailDebtor {
+  store_id: number
   operations: TRetailDebtorOperation[]
 }
 

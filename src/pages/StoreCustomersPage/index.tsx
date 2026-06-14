@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router'
 import { useGetStoreCustomersQuery } from '@/features/stores/api/stores.api'
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { paths } from '@/app/routers/constants'
-import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet, AlertTriangle, X, Building2, History, Search } from 'lucide-react'
+import { Package, Phone, MapPin, Users, Coins, Plus, ShoppingCart, BarChart3, Pencil, User, Wallet, AlertTriangle, X, Building2, History, Search, Ban, CalendarClock } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useGetExpensesQuery, useCreateExpenseMutation } from '@/features/expenses/api/expenses.api'
 import {
@@ -10,6 +10,8 @@ import {
   useGetRetailDebtorsQuery,
   useCreateRetailDebtorPaymentMutation,
   useGetRetailDebtorDetailQuery,
+  useToggleRetailDebtorBlacklistMutation,
+  useUpdateRetailDebtorDeadlineMutation,
 } from '@/features/sales/api/sales.api'
 import { useGetStoreFinancialSummaryQuery } from '@/features/stores/api/stores.api'
 import { toast } from 'sonner'
@@ -48,6 +50,7 @@ export const StoreCustomersPage = () => {
   const [historyResellerId, setHistoryResellerId] = useState<number | null>(null)
   const [showStatisticsModal, setShowStatisticsModal] = useState(false)
   const [retailDebtorSearch, setRetailDebtorSearch] = useState('')
+  const [retailDebtSubTab, setRetailDebtSubTab] = useState<'all' | 'overdue' | 'blacklist'>('all')
 
   const [amount, setAmount] = useState('')
   const [comment, setComment] = useState('')
@@ -82,6 +85,19 @@ export const StoreCustomersPage = () => {
   })
   const [deleteReseller] = useDeleteResellerMutation()
   const [createRetailDebtorPayment, { isLoading: isCreatingRetailPayment }] = useCreateRetailDebtorPaymentMutation()
+  const [toggleBlacklist, { isLoading: isTogglingBlacklist }] = useToggleRetailDebtorBlacklistMutation()
+  const [updateDeadline, { isLoading: isUpdatingDeadline }] = useUpdateRetailDebtorDeadlineMutation()
+
+  // State for blacklist modal
+  const [showBlacklistModal, setShowBlacklistModal] = useState(false)
+  const [blacklistDebtorId, setBlacklistDebtorId] = useState<number | null>(null)
+  const [blacklistAction, setBlacklistAction] = useState<'add' | 'remove'>('add')
+  const [blacklistReason, setBlacklistReason] = useState('')
+
+  // State for extend deadline modal
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false)
+  const [deadlineDebtorId, setDeadlineDebtorId] = useState<number | null>(null)
+  const [newDeadline, setNewDeadline] = useState('')
 
   // State for payment modal
   const [selectedDebtorId, setSelectedDebtorId] = useState<number | null>(null)
@@ -117,9 +133,12 @@ export const StoreCustomersPage = () => {
 
   const { store, customers } = data
   const retailDebtorSearchValue = retailDebtorSearch.trim().toLowerCase()
+  const overdueDebtors = retailDebtors.filter((d) => !!d.is_overdue)
+  const blacklistedDebtors = retailDebtors.filter((d) => !!d.is_blacklisted)
+  const baseDebtors = retailDebtSubTab === 'overdue' ? overdueDebtors : retailDebtSubTab === 'blacklist' ? blacklistedDebtors : retailDebtors
   const filteredRetailDebtors = retailDebtorSearchValue
-    ? retailDebtors.filter((debtor) => debtor.customer_name.toLowerCase().includes(retailDebtorSearchValue))
-    : retailDebtors
+    ? baseDebtors.filter((debtor) => debtor.customer_name.toLowerCase().includes(retailDebtorSearchValue))
+    : baseDebtors
 
   // Compute sales/returns totals and counts. Treat RETURN as a payment.
   const salesCount = storeSales.filter((t) => t.type === 'SALE').length
@@ -248,6 +267,36 @@ export const StoreCustomersPage = () => {
     } catch (error) {
       toast.error('Ошибка при записи оплаты')
       console.error(error)
+    }
+  }
+
+  const handleToggleBlacklist = async () => {
+    if (!blacklistDebtorId) return
+    try {
+      await toggleBlacklist({
+        id: blacklistDebtorId,
+        is_blacklisted: blacklistAction === 'add',
+        blacklist_reason: blacklistAction === 'add' ? blacklistReason || undefined : undefined,
+      }).unwrap()
+      toast.success(blacklistAction === 'add' ? 'Должник добавлен в чёрный список' : 'Должник удалён из чёрного списка')
+      setShowBlacklistModal(false)
+      setBlacklistReason('')
+      setBlacklistDebtorId(null)
+    } catch {
+      toast.error('Ошибка при изменении статуса чёрного списка')
+    }
+  }
+
+  const handleExtendDeadline = async () => {
+    if (!deadlineDebtorId || !newDeadline) return
+    try {
+      await updateDeadline({ id: deadlineDebtorId, debt_deadline: newDeadline }).unwrap()
+      toast.success('Дедлайн успешно продлён')
+      setShowDeadlineModal(false)
+      setNewDeadline('')
+      setDeadlineDebtorId(null)
+    } catch {
+      toast.error('Ошибка при продлении дедлайна')
     }
   }
 
@@ -693,6 +742,59 @@ export const StoreCustomersPage = () => {
           <div>
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Долги в розницу</h3>
 
+            {/* Sub-tabs */}
+            <div className="flex gap-2 mb-4 border-b border-slate-200">
+              <button
+                onClick={() => setRetailDebtSubTab('all')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  retailDebtSubTab === 'all'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Все
+                <span className="px-1.5 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
+                  {retailDebtors.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setRetailDebtSubTab('overdue')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  retailDebtSubTab === 'overdue'
+                    ? 'border-red-500 text-red-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <AlertTriangle size={14} />
+                Просроченные
+                {overdueDebtors.length > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                    retailDebtSubTab === 'overdue' ? 'bg-red-100 text-red-700' : 'bg-red-100 text-red-600'
+                  }`}>
+                    {overdueDebtors.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setRetailDebtSubTab('blacklist')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  retailDebtSubTab === 'blacklist'
+                    ? 'border-gray-800 text-gray-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Ban size={14} />
+                Чёрный список
+                {blacklistedDebtors.length > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                    retailDebtSubTab === 'blacklist' ? 'bg-gray-200 text-gray-800' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {blacklistedDebtors.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
             <div className="relative max-w-sm mb-4">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -713,24 +815,32 @@ export const StoreCustomersPage = () => {
             </div>
 
             {/* Total Remaining Balance Summary */}
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-              <div className="flex justify-between items-center">
-                <div className="text-red-800">
-                  <span className="font-semibold">Итоговый остаток всех должников: </span>
+            <div className={`border rounded-xl p-4 mb-6 ${retailDebtSubTab === 'overdue' ? 'bg-red-100 border-red-300' : retailDebtSubTab === 'blacklist' ? 'bg-gray-100 border-gray-300' : 'bg-red-50 border-red-200'}`}>
+              <div className="flex justify-between items-center flex-wrap gap-3">
+                <div className={retailDebtSubTab === 'blacklist' ? 'text-gray-800' : 'text-red-800'}>
+                  <span className="font-semibold">
+                    {retailDebtSubTab === 'overdue' ? 'Остаток просроченных: ' : retailDebtSubTab === 'blacklist' ? 'Остаток по чёрному списку: ' : 'Итоговый остаток всех должников: '}
+                  </span>
                   <span className="text-xl font-bold">
-                    {retailDebtors
+                    {filteredRetailDebtors
                       .reduce((total, debtor) => total + Number(debtor.remaining_balance || 0), 0)
                       .toFixed(2)}
                   </span>
                 </div>
-                <div className="text-sm text-red-600">
-                  {retailDebtorSearchValue ? `${filteredRetailDebtors.length} из ${retailDebtors.length}` : retailDebtors.length} должник(ов)
+                <div className={`text-sm ${retailDebtSubTab === 'blacklist' ? 'text-gray-600' : 'text-red-600'}`}>
+                  {retailDebtorSearchValue
+                    ? `${filteredRetailDebtors.length} из ${baseDebtors.length}`
+                    : `${baseDebtors.length}`} должник(ов)
                 </div>
               </div>
             </div>
 
             {retailDebtors.length === 0 ? (
               <div className="text-center py-10 text-slate-500">Нет розничных должников</div>
+            ) : retailDebtSubTab === 'overdue' && overdueDebtors.length === 0 ? (
+              <div className="text-center py-10 text-green-600 font-medium">Просроченных должников нет</div>
+            ) : retailDebtSubTab === 'blacklist' && blacklistedDebtors.length === 0 ? (
+              <div className="text-center py-10 text-slate-500">Чёрный список пуст</div>
             ) : filteredRetailDebtors.length === 0 ? (
               <div className="text-center py-10 text-slate-500">Должники не найдены</div>
             ) : (
@@ -754,6 +864,9 @@ export const StoreCustomersPage = () => {
                         Остаток
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                        Дедлайн
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Дата создания
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -762,18 +875,25 @@ export const StoreCustomersPage = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
-                    {[...filteredRetailDebtors]
-                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    {filteredRetailDebtors
                       .map((debtor) => (
                         <tr
                           key={debtor.id}
-                          className="hover:bg-slate-50 cursor-pointer"
+                          className={`cursor-pointer transition-colors ${!!debtor.is_blacklisted ? 'bg-gray-100 hover:bg-gray-200' : !!debtor.is_overdue ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}`}
                           onClick={() => {
                             setSelectedDebtorDetailsId(debtor.id)
                           }}
                         >
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
-                            {debtor.customer_name}
+                            <div className="flex items-center gap-2">
+                              {!!debtor.is_blacklisted && (
+                                <span title="Чёрный список" className="flex-shrink-0"><Ban size={14} className="text-gray-700" /></span>
+                              )}
+                              {!!debtor.is_overdue && (
+                                <span title="Просрочен" className="flex-shrink-0"><AlertTriangle size={14} className="text-red-500" /></span>
+                              )}
+                              {debtor.customer_name}
+                            </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{debtor.phone}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
@@ -789,6 +909,20 @@ export const StoreCustomersPage = () => {
                               {Number(debtor.remaining_balance).toFixed(2)}
                             </span>
                           </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            {debtor.debt_deadline ? (
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${!!debtor.is_overdue ? 'bg-red-200 text-red-900' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {new Date(debtor.debt_deadline).toLocaleDateString('ru-RU', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                })}
+                                {!!debtor.is_overdue && ' ⚠ Просрочен'}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
                             {new Date(debtor.created_at).toLocaleDateString('ru-RU', {
                               day: '2-digit',
@@ -797,18 +931,49 @@ export const StoreCustomersPage = () => {
                             })}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation() // Prevent row click event
-                                setSelectedDebtorId(debtor.id)
-                                setShowPaymentModal(true)
-                              }}
-                              className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
-                              disabled={isCreatingRetailPayment}
-                            >
-                              <Wallet size={16} />
-                              Оплатить
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedDebtorId(debtor.id)
+                                  setShowPaymentModal(true)
+                                }}
+                                className="text-blue-600 hover:text-blue-800"
+                                disabled={isCreatingRetailPayment}
+                                title="Оплатить"
+                              >
+                                <Wallet size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeadlineDebtorId(debtor.id)
+                                  setNewDeadline(debtor.debt_deadline ? debtor.debt_deadline.slice(0, 10) : '')
+                                  setShowDeadlineModal(true)
+                                }}
+                                className="text-orange-500 hover:text-orange-700"
+                                disabled={isUpdatingDeadline}
+                                title="Изменить дедлайн"
+                              >
+                                <CalendarClock size={16} />
+                              </button>
+                              {retailDebtSubTab === 'overdue' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setBlacklistDebtorId(debtor.id)
+                                    setBlacklistAction(!!debtor.is_blacklisted ? 'remove' : 'add')
+                                    setBlacklistReason('')
+                                    setShowBlacklistModal(true)
+                                  }}
+                                  className={!!debtor.is_blacklisted ? 'text-gray-500 hover:text-gray-800' : 'text-gray-400 hover:text-gray-700'}
+                                  disabled={isTogglingBlacklist}
+                                  title={!!debtor.is_blacklisted ? 'Убрать из чёрного списка' : 'Добавить в чёрный список'}
+                                >
+                                  <Ban size={16} />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1353,6 +1518,104 @@ export const StoreCustomersPage = () => {
         </div>
       )}
 
+      {/* Blacklist Modal */}
+      {showBlacklistModal && blacklistDebtorId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Ban size={20} className="text-gray-700" />
+                {blacklistAction === 'add' ? 'Добавить в чёрный список' : 'Убрать из чёрного списка'}
+              </h3>
+              <button
+                onClick={() => { setShowBlacklistModal(false); setBlacklistReason('') }}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {blacklistAction === 'add' ? (
+                <p className="text-sm text-slate-600">Должник будет помечен как нежелательный. Вы уверены?</p>
+              ) : (
+                <p className="text-sm text-slate-600">Должник будет убран из чёрного списка. Вы уверены?</p>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleToggleBlacklist}
+                  disabled={isTogglingBlacklist}
+                  className={`flex-1 px-4 py-2 rounded-lg text-white disabled:bg-slate-400 ${blacklistAction === 'add' ? 'bg-gray-800 hover:bg-gray-900' : 'bg-green-600 hover:bg-green-700'}`}
+                >
+                  {isTogglingBlacklist ? 'Обработка...' : blacklistAction === 'add' ? 'Добавить в ЧС' : 'Убрать из ЧС'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowBlacklistModal(false); setBlacklistReason('') }}
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Extend Deadline Modal */}
+      {showDeadlineModal && deadlineDebtorId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <CalendarClock size={20} className="text-orange-500" />
+                Продлить дедлайн
+              </h3>
+              <button
+                onClick={() => { setShowDeadlineModal(false); setNewDeadline(''); setDeadlineDebtorId(null) }}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Новый дедлайн *</label>
+                <input
+                  type="date"
+                  value={newDeadline}
+                  onChange={(e) => setNewDeadline(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  min={new Date().toISOString().slice(0, 10)}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleExtendDeadline}
+                  disabled={isUpdatingDeadline || !newDeadline}
+                  className="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 disabled:bg-slate-400"
+                >
+                  {isUpdatingDeadline ? 'Сохранение...' : 'Продлить'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowDeadlineModal(false); setNewDeadline(''); setDeadlineDebtorId(null) }}
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Debtor Details Modal */}
       {selectedDebtorDetailsId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1400,6 +1663,31 @@ export const StoreCustomersPage = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Blacklist banner */}
+                {!!debtorDetail.is_blacklisted && (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border bg-gray-100 border-gray-400 text-gray-800">
+                    <Ban size={18} className="flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold">Чёрный список</span>
+                      {debtorDetail.blacklist_reason && (
+                        <span className="ml-2 text-gray-600">— {debtorDetail.blacklist_reason}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Deadline banner */}
+                {debtorDetail.debt_deadline && (
+                  <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${!!debtorDetail.is_overdue ? 'bg-red-50 border-red-300 text-red-800' : 'bg-yellow-50 border-yellow-300 text-yellow-800'}`}>
+                    <AlertTriangle size={18} className="flex-shrink-0" />
+                    <div>
+                      <span className="font-semibold">Дедлайн долга: </span>
+                      {new Date(debtorDetail.debt_deadline).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}
+                      {!!debtorDetail.is_overdue && <span className="ml-2 font-bold">— Просрочен!</span>}
+                    </div>
+                  </div>
+                )}
 
                 {/* Operations History */}
                 <div>
@@ -1614,6 +1902,7 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
   const [items, setItems] = useState<StoreSaleItem[]>([emptyItem])
   const [customerName, setCustomerName] = useState('')
   const [phone, setPhone] = useState('')
+  const [debtDeadline, setDebtDeadline] = useState('')
   const [stockErrors, setStockErrors] = useState<StockError[]>([])
   const [createSale, { isLoading }] = useCreateSaleMutation()
   const [createSaleDraft, { isLoading: isSavingDraft }] = useCreateSaleDraftMutation()
@@ -1764,14 +2053,14 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
         payment_status,
         customer_name: payment_status === 'DEBT' ? customerName : undefined,
         phone: payment_status === 'DEBT' ? phone : undefined,
+        debt_deadline: payment_status === 'DEBT' && debtDeadline ? debtDeadline : null,
         items: items.map((item) => {
-          // Find the product to get its product_code
           const product = products.find((p) => p.id === item.product_id)
           return {
             product_id: item.product_id,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            product_code: product?.product_code || '', // Include product_code in the submission
+            product_code: product?.product_code || '',
           }
         }),
       }).unwrap()
@@ -1781,6 +2070,7 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
       setItems([emptyItem])
       setCustomerName('')
       setPhone('')
+      setDebtDeadline('')
       setStockErrors([])
 
       // Close the form if onClose is provided
@@ -1907,6 +2197,20 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
   // const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 0), 0)
 
   const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price || 0), 0)
+
+  const blacklistedMatch = payment_status === 'DEBT' && customerName.trim()
+    ? retailDebtors.find((d) => {
+        if (!d.is_blacklisted) return false
+        const nameMatch = d.customer_name.toLowerCase().includes(customerName.trim().toLowerCase())
+        if (!nameMatch) return false
+        // если телефон введён — уточняем по нему, чтобы не путать тёзок
+        if (phone.trim() && d.phone) {
+          const normalize = (p: string) => p.replace(/\D/g, '')
+          return normalize(d.phone).includes(normalize(phone.trim()))
+        }
+        return true
+      }) ?? null
+    : null
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
       <div className="mb-4">
@@ -1923,7 +2227,8 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
 
       {/* Customer fields for DEBT payments */}
       {payment_status === 'DEBT' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Имя клиента *</label>
             <div className="relative">
@@ -1937,23 +2242,23 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
                   }
                 }}
                 onBlur={() => {
-                  // Delay hiding suggestions to allow click on suggestion
                   setTimeout(() => setShowCustomerSuggestions(false), 200)
                 }}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2"
                 placeholder="Введите имя клиента"
               />
-              
-              {/* Dropdown for customer suggestions */}
               {showCustomerSuggestions && getFilteredDebtors().length > 0 && (
                 <div className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
                   {getFilteredDebtors().map((debtor) => (
                     <div
                       key={debtor.id}
-                      className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0"
+                      className={`p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 ${!!debtor.is_blacklisted ? 'bg-gray-50' : ''}`}
                       onClick={() => handleCustomerSelect(debtor)}
                     >
-                      <div className="font-medium text-slate-800">{debtor.customer_name}</div>
+                      <div className="font-medium text-slate-800 flex items-center gap-1">
+                        {!!debtor.is_blacklisted && <Ban size={12} className="text-gray-700 flex-shrink-0" />}
+                        {debtor.customer_name}
+                      </div>
                       <div className="text-xs text-slate-500">
                         Телефон: {debtor.phone || 'Не указан'}
                       </div>
@@ -1976,7 +2281,27 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
               placeholder="Введите телефон клиента"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Дедлайн долга</label>
+            <input
+              type="date"
+              value={debtDeadline}
+              onChange={(e) => setDebtDeadline(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2"
+            />
+            <p className="text-xs text-slate-500 mt-1">Необязательно — дата погашения долга</p>
+          </div>
         </div>
+        {blacklistedMatch && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl border bg-gray-900 border-gray-700 text-white">
+            <Ban size={16} className="flex-shrink-0" />
+            <span className="text-sm font-medium">
+              Внимание: клиент «{blacklistedMatch.customer_name}» находится в чёрном списке
+            </span>
+          </div>
+        )}
+        </>
       )}
 
       <div className="space-y-4">

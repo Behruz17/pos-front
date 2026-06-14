@@ -1,4 +1,16 @@
 import z from 'zod'
+import { env } from '@/shared/env'
+
+const serverOrigin = env.VITE_BASE_SERVER_URL.replace(/\/api$/, '')
+
+const imageTransform = z
+  .string()
+  .nullable()
+  .transform((val) => {
+    if (!val) return 'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
+    if (val.startsWith('/')) return `${serverOrigin}${val}`
+    return val
+  })
 
 export const warehouseSchema = z.object({
   id: z.number(),
@@ -24,14 +36,7 @@ export const warehouseProductsSchema = z.object({
       purchase_cost: z.coerce.number(),
       selling_price: z.coerce.number(),
 
-      image: z
-        .string()
-        .nullable()
-        .transform(
-          (val) =>
-            val ??
-            'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
-        ),
+      image: imageTransform,
       updated_at: z.string().nullable(),
     })
   ),
@@ -42,14 +47,7 @@ export const warehouseProductsDetailSchema = z.object({
 
   product: z.object({
     id: z.number(),
-    image: z
-      .string()
-      .nullable()
-      .transform(
-        (val) =>
-          val ??
-          'https://avatars.mds.yandex.net/i?id=65925811af36ef930db4a09c96b0cbf1d2b0763c-5221533-images-thumbs&n=13'
-      ),
+    image: imageTransform,
     name: z.string(),
     product_code: z.string().nullable(),
     manufacturer: z.string().nullable(),

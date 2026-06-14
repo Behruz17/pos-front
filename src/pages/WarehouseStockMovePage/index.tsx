@@ -253,6 +253,11 @@ const WarehouseStockMovePage = () => {
                         value={row.total_pieces}
                         onChange={(value) => updateRow(row.id, { total_pieces: value })}
                         onKeyDown={(event) => addRowFromTab(event, row, index)}
+                        onFocus={() => {
+                          if (index === rows.length - 1 && getProductForRow(row)) {
+                            setRows((current) => [...current, createRow()])
+                          }
+                        }}
                       />
 
                       <button
@@ -307,11 +312,13 @@ const NumberField = ({
   value,
   onChange,
   onKeyDown,
+  onFocus,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
+  onFocus?: () => void
 }) => (
   <label className="block">
     <span className="mb-1 block text-xs font-medium text-slate-500">{label}</span>
@@ -321,6 +328,7 @@ const NumberField = ({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       onKeyDown={onKeyDown}
+      onFocus={onFocus}
       className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-blue-500"
     />
   </label>

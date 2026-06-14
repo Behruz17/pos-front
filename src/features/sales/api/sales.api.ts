@@ -72,6 +72,22 @@ const salesApi = baseApi.injectEndpoints({
       }),
       providesTags: (_result, _error, id) => [{ type: 'RetailDebtors', id }],
     }),
+    toggleRetailDebtorBlacklist: build.mutation<{ message: string; is_blacklisted: 0 | 1 }, { id: number; is_blacklisted: boolean; blacklist_reason?: string }>({
+      query: ({ id, ...body }) => ({
+        url: `/retail-debtors/${id}/blacklist`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['RetailDebtors'],
+    }),
+    updateRetailDebtorDeadline: build.mutation<{ message: string; debt_deadline: string }, { id: number; debt_deadline: string }>({
+      query: ({ id, ...body }) => ({
+        url: `/retail-debtors/${id}/deadline`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['RetailDebtors'],
+    }),
     // Sale Drafts endpoints
     getSaleDrafts: build.query<TSaleDraftQueryResult, { store_id?: number; customer_id?: number } | void>({
       query: (params) => {
@@ -106,4 +122,4 @@ const salesApi = baseApi.injectEndpoints({
   }),
 })
 
-export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery, useGetRetailDebtorDetailQuery, useGetSaleDraftsQuery, useCreateSaleDraftMutation, useDeleteSaleDraftMutation } = salesApi
+export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery, useGetRetailDebtorDetailQuery, useToggleRetailDebtorBlacklistMutation, useUpdateRetailDebtorDeadlineMutation, useGetSaleDraftsQuery, useCreateSaleDraftMutation, useDeleteSaleDraftMutation } = salesApi
