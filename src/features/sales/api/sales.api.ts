@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation, TRetailDebtorDetail, TCreateSaleDraft, TSaleDraftResponse, TSaleDraftQueryResult } from '../model/sales.types'
+import type { TSale, TCreateSale, TRetailDebtor, TRetailDebtorPayment, TRetailDebtorOperation, TRetailDebtorDetail, TCreateSaleDraft, TSaleDraftResponse, TSaleDraftQueryResult, TAddToBlacklistDirect } from '../model/sales.types'
 
 const salesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -88,6 +88,14 @@ const salesApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['RetailDebtors'],
     }),
+    addToBlacklistDirect: build.mutation<{ message: string; id: number }, TAddToBlacklistDirect>({
+      query: (body) => ({
+        url: '/retail-debtors/blacklist-direct',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['RetailDebtors'],
+    }),
     // Sale Drafts endpoints
     getSaleDrafts: build.query<TSaleDraftQueryResult, { store_id?: number; customer_id?: number } | void>({
       query: (params) => {
@@ -122,4 +130,4 @@ const salesApi = baseApi.injectEndpoints({
   }),
 })
 
-export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery, useGetRetailDebtorDetailQuery, useToggleRetailDebtorBlacklistMutation, useUpdateRetailDebtorDeadlineMutation, useGetSaleDraftsQuery, useCreateSaleDraftMutation, useDeleteSaleDraftMutation } = salesApi
+export const { useCreateSaleMutation, useGetSalesQuery, useGetSaleByIdQuery, useGetRetailDebtorsQuery, useCreateRetailDebtorPaymentMutation, useGetRetailDebtorOperationsQuery, useGetRetailDebtorDetailQuery, useToggleRetailDebtorBlacklistMutation, useUpdateRetailDebtorDeadlineMutation, useAddToBlacklistDirectMutation, useGetSaleDraftsQuery, useCreateSaleDraftMutation, useDeleteSaleDraftMutation } = salesApi

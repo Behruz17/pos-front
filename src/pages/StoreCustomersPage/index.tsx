@@ -12,6 +12,7 @@ import {
   useGetRetailDebtorDetailQuery,
   useToggleRetailDebtorBlacklistMutation,
   useUpdateRetailDebtorDeadlineMutation,
+  useAddToBlacklistDirectMutation,
 } from '@/features/sales/api/sales.api'
 import { useGetStoreFinancialSummaryQuery } from '@/features/stores/api/stores.api'
 import { toast } from 'sonner'
@@ -87,6 +88,13 @@ export const StoreCustomersPage = () => {
   const [createRetailDebtorPayment, { isLoading: isCreatingRetailPayment }] = useCreateRetailDebtorPaymentMutation()
   const [toggleBlacklist, { isLoading: isTogglingBlacklist }] = useToggleRetailDebtorBlacklistMutation()
   const [updateDeadline, { isLoading: isUpdatingDeadline }] = useUpdateRetailDebtorDeadlineMutation()
+  const [addToBlacklistDirect, { isLoading: isAddingToBlacklist }] = useAddToBlacklistDirectMutation()
+
+  // State for add-to-blacklist-direct modal
+  const [showAddBlacklistModal, setShowAddBlacklistModal] = useState(false)
+  const [newBlacklistName, setNewBlacklistName] = useState('')
+  const [newBlacklistPhone, setNewBlacklistPhone] = useState('')
+  const [newBlacklistReason, setNewBlacklistReason] = useState('')
 
   // State for blacklist modal
   const [showBlacklistModal, setShowBlacklistModal] = useState(false)
@@ -284,6 +292,28 @@ export const StoreCustomersPage = () => {
       setBlacklistDebtorId(null)
     } catch {
       toast.error('Ошибка при изменении статуса чёрного списка')
+    }
+  }
+
+  const handleAddToBlacklistDirect = async () => {
+    if (!newBlacklistName.trim()) {
+      toast.error('Введите имя клиента')
+      return
+    }
+    try {
+      await addToBlacklistDirect({
+        customer_name: newBlacklistName.trim(),
+        phone: newBlacklistPhone.trim() || undefined,
+        blacklist_reason: newBlacklistReason.trim() || undefined,
+        store_id: Number(storeId),
+      }).unwrap()
+      toast.success('Клиент добавлен в чёрный список')
+      setShowAddBlacklistModal(false)
+      setNewBlacklistName('')
+      setNewBlacklistPhone('')
+      setNewBlacklistReason('')
+    } catch {
+      toast.error('Ошибка при добавлении в чёрный список')
     }
   }
 
@@ -795,23 +825,32 @@ export const StoreCustomersPage = () => {
               </button>
             </div>
 
-            <div className="relative max-w-sm mb-4">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={retailDebtorSearch}
-                onChange={(e) => setRetailDebtorSearch(e.target.value)}
-                placeholder="Поиск по имени должника"
-                className="w-full rounded-xl border border-slate-300 pl-9 pr-9 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
-              />
-              {retailDebtorSearch && (
-                <button
-                  onClick={() => setRetailDebtorSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  aria-label="Очистить поиск"
-                >
-                  <X size={16} />
-                </button>
-              )}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={retailDebtorSearch}
+                  onChange={(e) => setRetailDebtorSearch(e.target.value)}
+                  placeholder="Поиск по имени должника"
+                  className="w-full rounded-xl border border-slate-300 pl-9 pr-9 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+                />
+                {retailDebtorSearch && (
+                  <button
+                    onClick={() => setRetailDebtorSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    aria-label="Очистить поиск"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setShowAddBlacklistModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+              >
+                <Ban size={14} />
+                Добавить в ЧС
+              </button>
             </div>
 
             {/* Total Remaining Balance Summary */}
@@ -854,18 +893,22 @@ export const StoreCustomersPage = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Телефон
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Общая задолженность
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Оплачено
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Остаток
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Дедлайн
-                      </th>
+                      {retailDebtSubTab !== 'blacklist' && (
+                        <>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Общая задолженность
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Оплачено
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Остаток
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Дедлайн
+                          </th>
+                        </>
+                      )}
                       <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                         Дата создания
                       </th>
@@ -896,33 +939,37 @@ export const StoreCustomersPage = () => {
                             </div>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{debtor.phone}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
-                            {Number(debtor.total_debt).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
-                            {Number(debtor.total_paid).toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${Number(debtor.remaining_balance) > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}
-                            >
-                              {Number(debtor.remaining_balance).toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            {debtor.debt_deadline ? (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${!!debtor.is_overdue ? 'bg-red-200 text-red-900' : 'bg-yellow-100 text-yellow-800'}`}>
-                                {new Date(debtor.debt_deadline).toLocaleDateString('ru-RU', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                })}
-                                {!!debtor.is_overdue && ' ⚠ Просрочен'}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 text-xs">—</span>
-                            )}
-                          </td>
+                          {retailDebtSubTab !== 'blacklist' && (
+                            <>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                                {Number(debtor.total_debt).toFixed(2)}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                                {Number(debtor.total_paid).toFixed(2)}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs ${Number(debtor.remaining_balance) > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}
+                                >
+                                  {Number(debtor.remaining_balance).toFixed(2)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                {debtor.debt_deadline ? (
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${!!debtor.is_overdue ? 'bg-red-200 text-red-900' : 'bg-yellow-100 text-yellow-800'}`}>
+                                    {new Date(debtor.debt_deadline).toLocaleDateString('ru-RU', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                    })}
+                                    {!!debtor.is_overdue && ' ⚠ Просрочен'}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">—</span>
+                                )}
+                              </td>
+                            </>
+                          )}
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
                             {new Date(debtor.created_at).toLocaleDateString('ru-RU', {
                               day: '2-digit',
@@ -932,32 +979,36 @@ export const StoreCustomersPage = () => {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
                             <div className="flex items-center gap-3">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setSelectedDebtorId(debtor.id)
-                                  setShowPaymentModal(true)
-                                }}
-                                className="text-blue-600 hover:text-blue-800"
-                                disabled={isCreatingRetailPayment}
-                                title="Оплатить"
-                              >
-                                <Wallet size={16} />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setDeadlineDebtorId(debtor.id)
-                                  setNewDeadline(debtor.debt_deadline ? debtor.debt_deadline.slice(0, 10) : '')
-                                  setShowDeadlineModal(true)
-                                }}
-                                className="text-orange-500 hover:text-orange-700"
-                                disabled={isUpdatingDeadline}
-                                title="Изменить дедлайн"
-                              >
-                                <CalendarClock size={16} />
-                              </button>
-                              {retailDebtSubTab === 'overdue' && (
+                              {retailDebtSubTab !== 'blacklist' && (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSelectedDebtorId(debtor.id)
+                                      setShowPaymentModal(true)
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800"
+                                    disabled={isCreatingRetailPayment}
+                                    title="Оплатить"
+                                  >
+                                    <Wallet size={16} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setDeadlineDebtorId(debtor.id)
+                                      setNewDeadline(debtor.debt_deadline ? debtor.debt_deadline.slice(0, 10) : '')
+                                      setShowDeadlineModal(true)
+                                    }}
+                                    className="text-orange-500 hover:text-orange-700"
+                                    disabled={isUpdatingDeadline}
+                                    title="Изменить дедлайн"
+                                  >
+                                    <CalendarClock size={16} />
+                                  </button>
+                                </>
+                              )}
+                              {(retailDebtSubTab === 'overdue' || retailDebtSubTab === 'blacklist') && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -1616,6 +1667,88 @@ export const StoreCustomersPage = () => {
         </div>
       )}
 
+      {/* Add to Blacklist Direct Modal */}
+      {showAddBlacklistModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Ban size={20} className="text-gray-800" />
+                Добавить в чёрный список
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAddBlacklistModal(false)
+                  setNewBlacklistName('')
+                  setNewBlacklistPhone('')
+                  setNewBlacklistReason('')
+                }}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Имя клиента *</label>
+                <input
+                  type="text"
+                  value={newBlacklistName}
+                  onChange={(e) => setNewBlacklistName(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  placeholder="Введите имя клиента"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Телефон</label>
+                <input
+                  type="text"
+                  value={newBlacklistPhone}
+                  onChange={(e) => setNewBlacklistPhone(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  placeholder="Введите номер телефона"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Причина</label>
+                <input
+                  type="text"
+                  value={newBlacklistReason}
+                  onChange={(e) => setNewBlacklistReason(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2"
+                  placeholder="Укажите причину (необязательно)"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleAddToBlacklistDirect}
+                  disabled={isAddingToBlacklist || !newBlacklistName.trim()}
+                  className="flex-1 bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 disabled:bg-slate-400"
+                >
+                  {isAddingToBlacklist ? 'Сохранение...' : 'Добавить в ЧС'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddBlacklistModal(false)
+                    setNewBlacklistName('')
+                    setNewBlacklistPhone('')
+                    setNewBlacklistReason('')
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Debtor Details Modal */}
       {selectedDebtorDetailsId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1920,10 +2053,11 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
   })
 
   // Filter debtors based on customer name input
-  const getFilteredDebtors = () => {
-    if (!customerName.trim()) return []
-    const lowerSearchTerm = customerName.toLowerCase()
-    return retailDebtors.filter(debtor => 
+  const getFilteredDebtors = (searchTerm?: string) => {
+    const term = searchTerm !== undefined ? searchTerm : customerName
+    if (!term.trim()) return []
+    const lowerSearchTerm = term.toLowerCase()
+    return retailDebtors.filter(debtor =>
       debtor.customer_name.toLowerCase().includes(lowerSearchTerm)
     )
   }
@@ -1938,7 +2072,7 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
   // Handle customer input changes
   const handleCustomerInputChange = (value: string) => {
     setCustomerName(value)
-    setShowCustomerSuggestions(value.trim().length > 0 && getFilteredDebtors().length > 0)
+    setShowCustomerSuggestions(value.trim().length > 0 && getFilteredDebtors(value).length > 0)
   }
 
   // Refs for keyboard navigation
@@ -2198,17 +2332,15 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
 
   const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price || 0), 0)
 
-  const blacklistedMatch = payment_status === 'DEBT' && customerName.trim()
+  const blacklistedMatch = payment_status === 'DEBT'
     ? retailDebtors.find((d) => {
         if (!d.is_blacklisted) return false
-        const nameMatch = d.customer_name.toLowerCase().includes(customerName.trim().toLowerCase())
-        if (!nameMatch) return false
-        // если телефон введён — уточняем по нему, чтобы не путать тёзок
-        if (phone.trim() && d.phone) {
-          const normalize = (p: string) => p.replace(/\D/g, '')
-          return normalize(d.phone).includes(normalize(phone.trim()))
-        }
-        return true
+        const normalize = (p: string) => p.replace(/\D/g, '')
+        const nameMatch = customerName.trim() &&
+          d.customer_name.trim().toLowerCase() === customerName.trim().toLowerCase()
+        const phoneMatch = phone.trim() && d.phone &&
+          normalize(d.phone) === normalize(phone.trim())
+        return !!(nameMatch || phoneMatch)
       }) ?? null
     : null
   return (
@@ -2252,12 +2384,15 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
                   {getFilteredDebtors().map((debtor) => (
                     <div
                       key={debtor.id}
-                      className={`p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 ${!!debtor.is_blacklisted ? 'bg-gray-50' : ''}`}
+                      className={`p-3 cursor-pointer border-b last:border-b-0 ${!!debtor.is_blacklisted ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-blue-50'}`}
                       onClick={() => handleCustomerSelect(debtor)}
                     >
-                      <div className="font-medium text-slate-800 flex items-center gap-1">
-                        {!!debtor.is_blacklisted && <Ban size={12} className="text-gray-700 flex-shrink-0" />}
+                      <div className="font-medium text-slate-800 flex items-center gap-1.5">
+                        {!!debtor.is_blacklisted && <Ban size={14} className="text-red-600 flex-shrink-0" />}
                         {debtor.customer_name}
+                        {!!debtor.is_blacklisted && (
+                          <span className="ml-1 text-xs font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">ЧС</span>
+                        )}
                       </div>
                       <div className="text-xs text-slate-500">
                         Телефон: {debtor.phone || 'Не указан'}

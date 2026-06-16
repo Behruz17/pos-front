@@ -105,6 +105,13 @@ export interface TRetailDebtorDetail extends TRetailDebtor {
   operations: TRetailDebtorOperation[]
 }
 
+export interface TAddToBlacklistDirect {
+  customer_name: string
+  phone?: string
+  blacklist_reason?: string
+  store_id: number
+}
+
 // Sale Draft types
 export interface TSaleDraftItem {
   product_id: number
