@@ -77,23 +77,64 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
   const calculatePercentage = (deliveryCost: string, convertedSum: number | null) => {
     if (!convertedSum || !deliveryCost) return null
     const delivery = parseFloat(deliveryCost)
-    if (convertedSum === 0) return null
-    return ((delivery / convertedSum) * 100).toFixed(2)
+    const converted = parseFloat(String(convertedSum))
+    if (!converted || isNaN(delivery)) return null
+    return ((delivery / converted) * 100).toFixed(2)
   }
 
   const calculateAveragePercentage = () => {
     if (!operations) return null
     const receiptOperations = operations.filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.converted_sum && op.sum)
     if (receiptOperations.length === 0) return null
-    
+
     const percentages = receiptOperations.map((op: DeliveryOperation) => {
       const percentage = calculatePercentage(op.sum, op.converted_sum)
       return percentage ? parseFloat(percentage) : null
     }).filter((p: number | null): p is number => p !== null)
-    
+
     if (percentages.length === 0) return null
     const average = percentages.reduce((sum: number, p: number) => sum + p, 0) / percentages.length
     return average.toFixed(2)
+  }
+
+  const calculateTotalReceiptAmount = () => {
+    if (!operations) return null
+    const total = operations
+      .filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.receipt_amount)
+      .reduce((sum: number, op: DeliveryOperation) => {
+        const amount = parseFloat(op.receipt_amount ?? '0')
+        return sum + (isNaN(amount) ? 0 : amount)
+      }, 0)
+    return total > 0 ? total.toFixed(2) : null
+  }
+
+  const calculateTotalPayment = () => {
+    if (!operations) return null
+    const total = operations
+      .filter((op: DeliveryOperation) => op.type !== 'RECEIPT' && op.sum)
+      .reduce((sum: number, op: DeliveryOperation) => {
+        const amount = parseFloat(op.sum ?? '0')
+        return sum + (isNaN(amount) ? 0 : amount)
+      }, 0)
+    return total > 0 ? total.toFixed(2) : null
+  }
+
+  const calculateWeightedAveragePercentage = () => {
+    if (!operations) return null
+    const receiptOperations = operations.filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.converted_sum && op.sum)
+    if (receiptOperations.length === 0) return null
+
+    const totalDeliveryCost = receiptOperations.reduce((sum: number, op: DeliveryOperation) => {
+      const cost = parseFloat(op.sum)
+      return sum + (isNaN(cost) ? 0 : cost)
+    }, 0)
+    const totalConvertedSum = receiptOperations.reduce((sum: number, op: DeliveryOperation) => {
+      const cs = parseFloat(String(op.converted_sum ?? 0))
+      return sum + (isNaN(cs) ? 0 : cs)
+    }, 0)
+
+    if (totalConvertedSum === 0) return null
+    return ((totalDeliveryCost / totalConvertedSum) * 100).toFixed(2)
   }
 
   return (
@@ -110,6 +151,26 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                 <span className="text-sm font-semibold text-blue-600">{calculateAveragePercentage()}%</span>
               </div>
             )}
+            {calculateWeightedAveragePercentage() && (
+              <div className="mt-1">
+                <span className="text-sm text-slate-600">Взвешенный процент доставки: </span>
+                <span className="text-sm font-semibold text-violet-600">{calculateWeightedAveragePercentage()}%</span>
+              </div>
+            )}
+            <div className="mt-2 flex flex-wrap gap-4">
+              {calculateTotalReceiptAmount() && (
+                <div>
+                  <span className="text-sm text-slate-600">Общая сумма прихода: </span>
+                  <span className="text-sm font-semibold text-emerald-600">{calculateTotalReceiptAmount()}</span>
+                </div>
+              )}
+              {calculateTotalPayment() && (
+                <div>
+                  <span className="text-sm text-slate-600">Сумма оплаты: </span>
+                  <span className="text-sm font-semibold text-red-600">{calculateTotalPayment()}</span>
+                </div>
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}

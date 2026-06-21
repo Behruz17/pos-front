@@ -15,7 +15,8 @@ import { DeliveryOperationsModal } from '@/widgets/modals/DeliveryOperationsModa
 import { DeliveryPaymentModal } from '@/widgets/modals/DeliveryPaymentModal'
 
 import CreateSupplierModal from '@/widgets/modals/CreateSupplierModal';
-import { CreateDeliveryDriverModal } from '@/widgets/modals/CreateDeliveryDriverModal';
+import { CreateDeliveryDriverModal } from '@/widgets/modals/CreateDeliveryDriverModal'
+import { DeliveryDriverStats } from '@/features/delivery-operations/ui/DeliveryDriverStats';
 
 import ButtonBack from '@/shared/ui/ButtonBack'
 
@@ -1418,6 +1419,7 @@ export const WarehouseProducts = ({
                           {new Date(driver.created_at).toLocaleDateString('ru-RU')}
                         </span>
                       </div>
+                      <DeliveryDriverStats driverId={driver.id} />
                     </div>
 
                     {/* Actions */}
@@ -1494,6 +1496,7 @@ export const WarehouseProducts = ({
                         <span className="text-slate-500">Создан:</span>
                         <span className="text-slate-600">{new Date(driver.created_at).toLocaleDateString('ru-RU')}</span>
                       </div>
+                      <DeliveryDriverStats driverId={driver.id} />
                     </div>
 
                     {isAdmin && (

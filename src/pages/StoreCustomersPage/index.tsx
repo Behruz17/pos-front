@@ -1418,7 +1418,6 @@ export const StoreCustomersPage = () => {
                           transaction.type === 'SALE' || transaction.type === 'PAYMENT' || transaction.type === 'RETURN'
                       )
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                      .slice(0, 15)
                       .map((transaction) => (
                         <tr
                           key={transaction.transaction_id}
@@ -1841,33 +1840,58 @@ export const StoreCustomersPage = () => {
                           <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                             Дата
                           </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            Товары
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-slate-200">
-                        {debtorDetail.operations.map((operation) => (
-                          <tr key={operation.id} className="hover:bg-slate-50">
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs ${operation.type === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}
-                              >
-                                {operation.type === 'DEBT' ? 'Долг' : 'Оплата'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
-                              {Number(operation.amount).toFixed(2)}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
-                              {operation.description || '—'}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
-                              {new Date(operation.created_at).toLocaleDateString('ru-RU', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                              })}
-                            </td>
-                          </tr>
-                        ))}
+                        {debtorDetail.operations.map((operation) => {
+                          const hasSale = operation.type !== 'PAYMENT' && !!operation.sale_id
+                          return (
+                            <tr
+                              key={operation.id}
+                              className={`transition-colors ${hasSale ? 'cursor-pointer hover:bg-blue-50' : 'hover:bg-slate-50'}`}
+                              onClick={() => {
+                                if (hasSale && operation.sale_id) {
+                                  setSelectedSaleId(operation.sale_id)
+                                }
+                              }}
+                              title={hasSale ? 'Нажмите, чтобы увидеть товары' : undefined}
+                            >
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs ${operation.type === 'DEBT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}
+                                >
+                                  {operation.type === 'DEBT' ? 'Долг' : 'Оплата'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                                {Number(operation.amount).toFixed(2)}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                                {operation.description || '—'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">
+                                {new Date(operation.created_at).toLocaleDateString('ru-RU', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                })}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                {hasSale ? (
+                                  <span className="flex items-center gap-1 text-blue-600 text-xs font-medium">
+                                    <ShoppingCart size={14} />
+                                    Посмотреть
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
