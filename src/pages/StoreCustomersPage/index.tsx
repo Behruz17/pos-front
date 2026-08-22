@@ -21,8 +21,9 @@ import { useCreateSaleMutation, useCreateSaleDraftMutation, useGetSaleDraftsQuer
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 
 import { SalesDetailModal } from '@/widgets/modals/SalesDetailModal'
-import { Trash2, PackagePlus, Download, Save, FileText } from 'lucide-react'
+import { Trash2, PackagePlus, Download, Save, FileText, Printer, Share2, Loader2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
+import { printRows, shareRowsAsImage } from '@/shared/utils/documentActions'
 import CustomerFormModal from '@/widgets/modals/CustomerFormModal'
 import ResellerFormModal from '@/widgets/modals/ResellerFormModal'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
@@ -32,6 +33,7 @@ import ResellerOperationModal from '@/widgets/modals/ResellerOperationModal'
 import ResellerPaymentModal from '@/widgets/modals/ResellerPaymentModal'
 import ResellerOperationsHistoryModal from '@/widgets/modals/ResellerOperationsHistoryModal'
 import { ResellerStatisticsModal } from '@/widgets/modals/ResellerStatisticsModal'
+import { CustomerStatisticsModal } from '@/widgets/modals/CustomerStatisticsModal'
 
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
@@ -42,6 +44,7 @@ export const StoreCustomersPage = () => {
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [showSalesForm, setShowSalesForm] = useState(false)
   const [showRetailReturnModal, setShowRetailReturnModal] = useState(false)
+  const [sharingSales, setSharingSales] = useState(false)
   const [editingCustomerId, setEditingCustomerId] = useState<number | null>(null)
   const [showCreateCustomerModal, setShowCreateCustomerModal] = useState(false)
   const [editingResellerId, setEditingResellerId] = useState<number | null>(null)
@@ -50,6 +53,7 @@ export const StoreCustomersPage = () => {
   const [paymentResellerId, setPaymentResellerId] = useState<number | null>(null)
   const [historyResellerId, setHistoryResellerId] = useState<number | null>(null)
   const [showStatisticsModal, setShowStatisticsModal] = useState(false)
+  const [statsCustomer, setStatsCustomer] = useState<{ id: number; name: string } | null>(null)
   const [retailDebtorSearch, setRetailDebtorSearch] = useState('')
   const [retailDebtSubTab, setRetailDebtSubTab] = useState<'all' | 'overdue' | 'blacklist'>('all')
 
@@ -172,6 +176,39 @@ export const StoreCustomersPage = () => {
   // Filter sales by store_id (already done server-side, but keeping for safety)
   // const storeSales = allSales.filter(sale => sale.store_id === Number(storeId))
 
+  // Build the export rows shared by Excel export, print and share
+  const buildStoreSalesExportData = () => {
+    const exportData = storeSales.map((sale, index) => ({
+      '#': (index + 1).toString(),
+      Дата: new Date(sale.created_at).toLocaleDateString('ru-RU'),
+      Клиент: sale.customer_name || '—',
+      Сумма: Number(sale.total_amount).toFixed(2),
+      'Статус оплаты': sale.payment_status === 'DEBT' ? 'В долг' : 'Оплачено',
+      Создал: sale.created_by_name || '—',
+    }))
+
+    const totalSum = storeSales.reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0)
+
+    exportData.push({
+      '#': 'ИТОГО',
+      Дата: '',
+      Клиент: '',
+      Сумма: totalSum.toFixed(2),
+      'Статус оплаты': '',
+      Создал: '',
+    })
+
+    return exportData
+  }
+
+  const buildStoreSalesWorkbook = () => {
+    const worksheet = XLSX.utils.json_to_sheet(buildStoreSalesExportData())
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Продажи')
+    const fileName = `sales_${store.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
+    return { workbook, fileName }
+  }
+
   // Handle sales export to Excel
   const handleExportSales = () => {
     if (storeSales.length === 0) {
@@ -180,45 +217,38 @@ export const StoreCustomersPage = () => {
     }
 
     try {
-      // Prepare data for export
-      const exportData = storeSales.map((sale, index) => ({
-        '#': (index + 1).toString(),
-        Дата: new Date(sale.created_at).toLocaleDateString('ru-RU'),
-        Клиент: sale.customer_name || '—',
-        Сумма: Number(sale.total_amount).toFixed(2),
-        'Статус оплаты': sale.payment_status === 'DEBT' ? 'В долг' : 'Оплачено',
-        Создал: sale.created_by_name || '—',
-      }))
-
-      // Add total row
-      const totalSum = storeSales.reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0)
-
-      exportData.push({
-        '#': 'ИТОГО',
-        Дата: '',
-        Клиент: '',
-        Сумма: totalSum.toFixed(2),
-        'Статус оплаты': '',
-        Создал: '',
-      })
-
-      // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData)
-
-      // Create workbook
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Продажи')
-
-      // Generate filename with timestamp
-      const fileName = `sales_${store.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`
-
-      // Export file
+      const { workbook, fileName } = buildStoreSalesWorkbook()
       XLSX.writeFile(workbook, fileName)
 
       toast.success('Файл успешно экспортирован')
     } catch (error) {
       console.error('Error exporting sales:', error)
       toast.error('Произошла ошибка при экспорте в Excel')
+    }
+  }
+
+  const handlePrintSales = () => {
+    if (storeSales.length === 0) {
+      toast.error('Нет данных для печати')
+      return
+    }
+    printRows(`Продажи магазина — ${store.name}`, buildStoreSalesExportData())
+  }
+
+  const handleShareSales = async () => {
+    if (storeSales.length === 0) {
+      toast.error('Нет данных для отправки')
+      return
+    }
+    setSharingSales(true)
+    try {
+      await shareRowsAsImage(
+        `Продажи магазина — ${store.name}`,
+        buildStoreSalesExportData(),
+        `sales_${store.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}`
+      )
+    } finally {
+      setSharingSales(false)
     }
   }
 
@@ -405,22 +435,24 @@ export const StoreCustomersPage = () => {
           <>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-800">Клиенты магазина</h3>
-              <button
-                onClick={() => setShowCreateCustomerModal(true)}
-                disabled={!isAdmin && me?.store_id !== Number(storeId)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                title={
-                  !isAdmin && me?.store_id !== Number(storeId)
-                    ? 'Вы можете добавлять клиентов только в свой магазин'
-                    : ''
-                }
-              >
-                <Plus size={16} />
-                Добавить клиента
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowCreateCustomerModal(true)}
+                  disabled={!isAdmin && me?.store_id !== Number(storeId)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isAdmin || me?.store_id === Number(storeId)
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  title={
+                    !isAdmin && me?.store_id !== Number(storeId)
+                      ? 'Вы можете добавлять клиентов только в свой магазин'
+                      : ''
+                  }
+                >
+                  <Plus size={16} />
+                  Добавить клиента
+                </button>
+              </div>
             </div>
 
             {customers.length === 0 ? (
@@ -464,6 +496,25 @@ export const StoreCustomersPage = () => {
                           </div>
                           <div className="text-xs text-slate-500">Баланс</div>
                         </div>
+
+                        {/* Statistics Icon - Always Visible */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setStatsCustomer({ id: customer.id, name: customer.full_name })
+                          }}
+                          className="
+                          p-1.5 rounded-lg
+                          bg-white border border-slate-200
+                          text-slate-400 hover:text-purple-600 hover:border-purple-500
+                          transition-all duration-200
+                          focus:outline-none focus:ring-2 focus:ring-purple-500
+                          self-start mt-1
+                        "
+                          title="Статистика клиента"
+                        >
+                          <BarChart3 size={14} />
+                        </button>
 
                         {/* Edit Icon - Always Visible */}
                         <button
@@ -1235,6 +1286,21 @@ export const StoreCustomersPage = () => {
                 >
                   <Download size={16} />
                   Экспорт в Excel
+                </button>
+                <button
+                  onClick={handlePrintSales}
+                  className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50"
+                >
+                  <Printer size={16} />
+                  Печать
+                </button>
+                <button
+                  onClick={handleShareSales}
+                  disabled={sharingSales}
+                  className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sharingSales ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+                  {sharingSales ? 'Отправка...' : 'Отправить'}
                 </button>
                 <button
                   onClick={() => setShowRetailReturnModal(true)}
@@ -2019,6 +2085,15 @@ export const StoreCustomersPage = () => {
         isOpen={showStatisticsModal}
         onClose={() => setShowStatisticsModal(false)}
         storeId={Number(storeId)}
+      />
+
+      {/* Customer Statistics Modal (per customer) */}
+      <CustomerStatisticsModal
+        isOpen={!!statsCustomer}
+        onClose={() => setStatsCustomer(null)}
+        storeId={Number(storeId)}
+        customerId={statsCustomer?.id}
+        customerName={statsCustomer?.name}
       />
     </div>
   )

@@ -143,7 +143,7 @@ export const OperationDetailsModal = ({
                         <span className="text-sm">Общая сумма</span>
                       </div>
                       <div className="text-2xl font-semibold text-slate-800">
-                        {operation.sum.toLocaleString()} с
+                        {receiptItems.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0).toLocaleString()} с
                       </div>
                     </div>
                   </div>

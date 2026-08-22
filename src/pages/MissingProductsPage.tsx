@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
+import { Printer, Share2, Loader2 } from 'lucide-react';
 import { useGetMissingProductsQuery } from '@/features/products/api/products.api';
 import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api';
 import { Loading } from '@/shared/ui/Loading';
 import { ProductImage } from '@/shared/ui/ProductImageю';
 import * as XLSX from 'xlsx';
+import { printRows, shareRowsAsImage } from '@/shared/utils/documentActions';
 
 interface MissingProduct {
   id: number;
@@ -21,6 +23,7 @@ const MissingProductsPage = () => {
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const [search, setSearch] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<number | null | 'none'>(null);
+  const [sharing, setSharing] = useState(false);
 
   // Create a mapping of supplier ID to name
   const supplierMap = useMemo(() => {
@@ -71,31 +74,51 @@ const MissingProductsPage = () => {
     return filtered;
   }, [products, search, selectedSupplier]);
 
-  // Export to Excel function
-  const exportToExcel = () => {
-    const exportData = filteredProducts.map((product) => ({
-      'Наименование товара': product.name,
-      'Артикул': product.product_code || '—',
-      'Производитель': product.manufacturer || '—',
-      'Текущий остаток': product.total_stock,
-      'Порог уведомления': product.notification_threshold,
-      'Недостает': product.notification_threshold - product.total_stock,
-      'Поставщик': product.last_supplier_id 
-        ? supplierMap.get(product.last_supplier_id) || 'Неизвестный поставщик' 
-        : '—'
-    }));
+  // Build export rows shared by Excel export, print and share
+  const buildMissingProductsExportData = () => filteredProducts.map((product) => ({
+    'Наименование товара': product.name,
+    'Артикул': product.product_code || '—',
+    'Производитель': product.manufacturer || '—',
+    'Текущий остаток': product.total_stock,
+    'Порог уведомления': product.notification_threshold,
+    'Недостает': product.notification_threshold - product.total_stock,
+    'Поставщик': product.last_supplier_id
+      ? supplierMap.get(product.last_supplier_id) || 'Неизвестный поставщик'
+      : '—'
+  }));
 
+  const buildMissingProductsWorkbook = () => {
+    const exportData = buildMissingProductsExportData();
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Недостающие товары');
-    
+
     // Auto-size columns
     const colWidths = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
     ws['!cols'] = colWidths;
-    
-    // Generate filename with current date
+
     const date = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
-    XLSX.writeFile(wb, `недостающие-товары-${date}.xlsx`);
+    return { workbook: wb, fileName: `недостающие-товары-${date}.xlsx` };
+  };
+
+  // Export to Excel function
+  const exportToExcel = () => {
+    const { workbook, fileName } = buildMissingProductsWorkbook();
+    XLSX.writeFile(workbook, fileName);
+  };
+
+  const printMissingProducts = () => {
+    printRows('Недостающие товары', buildMissingProductsExportData());
+  };
+
+  const shareMissingProducts = async () => {
+    setSharing(true);
+    try {
+      const date = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+      await shareRowsAsImage('Недостающие товары', buildMissingProductsExportData(), `недостающие-товары-${date}`);
+    } finally {
+      setSharing(false);
+    }
   };
 
   if (isLoading) return <Loading text="недостающих товаров" />;
@@ -148,7 +171,27 @@ const MissingProductsPage = () => {
             </svg>
             Экспорт
           </button>
-          
+
+          <button
+            onClick={printMissingProducts}
+            disabled={filteredProducts.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
+            title="Печать"
+          >
+            <Printer size={16} />
+            Печать
+          </button>
+
+          <button
+            onClick={shareMissingProducts}
+            disabled={sharing || filteredProducts.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
+            title="Отправить"
+          >
+            {sharing ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+            {sharing ? 'Отправка...' : 'Отправить'}
+          </button>
+
           <div className="relative w-full sm:w-72">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"

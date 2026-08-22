@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Edit2, Package, Plus, Search, Trash2, Download } from 'lucide-react'
+import { Edit2, Package, Plus, Search, Trash2, Download, Printer, Share2, Loader2 } from 'lucide-react'
 import { useDeleteProductMutation, useGetProductsQuery } from '@/features/products/api/products.api'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { formatDateTime } from '@/shared/formatDateTime'
@@ -10,6 +10,8 @@ import { ProductImage } from '@/shared/ui/ProductImageю'
 import EditProductModal from '@/widgets/modals/EditProductModal'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
+import { getCurrencyDisplay } from '@/shared/utils/currencyUtils'
+import { printRows, shareRowsAsImage } from '@/shared/utils/documentActions'
 
 const ProductsPage = () => {
   const { data: products = [], isLoading } = useGetProductsQuery()
@@ -25,15 +27,41 @@ const ProductsPage = () => {
   }>(null)
 
   const [search, setSearch] = useState('')
+  const [supplierFilter, setSupplierFilter] = useState<string>('all')
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [openProductModal, setOpenProductModal] = useState(false)
   const [excelExporting, setExcelExporting] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation()
 
+  const uniqueSuppliers = useMemo(() => {
+    const suppliersMap = new Map<number, string>()
+    products.forEach((p) => {
+      if (p.last_supplier_id) suppliersMap.set(p.last_supplier_id, p.last_supplier_name || `#${p.last_supplier_id}`)
+    })
+    return Array.from(suppliersMap.entries()).sort((a, b) => a[1].localeCompare(b[1]))
+  }, [products])
+
   const filtered = useMemo(() => {
-    return products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
-  }, [products, search])
+    return products
+      .filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+      .filter((p) => {
+        if (supplierFilter === 'all') return true
+        if (supplierFilter === 'none') return !p.last_supplier_id
+        return String(p.last_supplier_id ?? '') === supplierFilter
+      })
+  }, [products, search, supplierFilter])
+
+  const totalsByCurrency = useMemo(() => {
+    const totals: Record<string, number> = {}
+    filtered.forEach((p) => {
+      const currency = p.currency || 'somoni'
+      const value = Number(p.purchase_cost || 0) * Number(p.total_stock || 0)
+      totals[currency] = (totals[currency] || 0) + value
+    })
+    return totals
+  }, [filtered])
 
   const onDelete = async () => {
     if (!deleteId) return
@@ -41,68 +69,83 @@ const ProductsPage = () => {
     setDeleteId(null)
   }
 
+  // Build the export rows shared by Excel export, print and share
+  const buildProductsExportData = (): Record<string, string | number>[] => {
+    const exportData: Record<string, string | number>[] = filtered.map((product, index) => ({
+      '#': (index + 1).toString(),
+      'Товар': product.name,
+      'Артикул': product.product_code || '',
+      'Производитель': product.manufacturer || '—',
+      'Поставщик': product.last_supplier_name || '—',
+      'Валюта': getCurrencyDisplay(product.currency || 'somoni'),
+      'Закупка': Number(product.purchase_cost || 0),
+      'Цена': Number(product.selling_price || 0),
+      'Остаток': Number(product.total_stock || 0),
+      'Последняя цена': Number(product.last_unit_price || 0),
+      'Создан': formatDateTime(product.created_at)
+    }))
+
+    const totalStock = filtered.reduce(
+      (sum, p) => sum + Number(p.total_stock || 0),
+      0
+    )
+
+    // Add total row per currency
+    exportData.push({
+      '#': 'ИТОГО',
+      'Товар': `Всего товаров: ${filtered.length}`,
+      'Артикул': '',
+      'Производитель': '',
+      'Поставщик': '',
+      'Валюта': '',
+      'Закупка': 0,
+      'Цена': 0,
+      'Остаток': totalStock,
+      'Последняя цена': 0,
+      'Создан': '',
+      'Общая стоимость': Object.entries(totalsByCurrency)
+        .map(([currency, total]) => `${total.toFixed(2)} ${getCurrencyDisplay(currency)}`)
+        .join('; ')
+    })
+
+    return exportData
+  }
+
+  const buildProductsWorkbook = () => {
+    const worksheet = XLSX.utils.json_to_sheet(buildProductsExportData())
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары')
+    const fileName = `products_${new Date().toISOString().split('T')[0]}.xlsx`
+    return { workbook, fileName }
+  }
+
   // Handle Excel file export
   const handleExcelExport = () => {
     setExcelExporting(true)
-    
-    try {
-      // Prepare data for export
-      const exportData: Record<string, string | number>[] = filtered.map((product, index) => ({
-        '#': (index + 1).toString(),
-        'Товар': product.name,
-        'Артикул': product.product_code || '',
-        'Производитель': product.manufacturer || '—',
-        'Закупка': Number(product.purchase_cost || 0),
-        'Цена': Number(product.selling_price || 0),
-        'Остаток': Number(product.total_stock || 0),
-        'Последняя цена': Number(product.last_unit_price || 0),
-        'Создан': formatDateTime(product.created_at)
-      }))
-      
-      // Calculate totals
-      const totalValue = filtered.reduce(
-        (sum, p) => sum + Number(p.purchase_cost || 0) * Number(p.total_stock || 0),
-        0
-      )
-      
-      const totalStock = filtered.reduce(
-        (sum, p) => sum + Number(p.total_stock || 0),
-        0
-      )
-      
-      // Add total row
-      exportData.push({
-        '#': 'ИТОГО',
-        'Товар': `Всего товаров: ${filtered.length}`,
-        'Артикул': '',
-        'Производитель': '',
-        'Закупка': 0,
-        'Цена': 0,
-        'Остаток': totalStock,
-        'Последняя цена': 0,
-        'Создан': '',
-        'Общая стоимость': totalValue
-      })
 
-      // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData)
-      
-      // Create workbook
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары')
-      
-      // Generate filename with timestamp
-      const fileName = `products_${new Date().toISOString().split('T')[0]}.xlsx`
-      
-      // Export file
+    try {
+      const { workbook, fileName } = buildProductsWorkbook()
       XLSX.writeFile(workbook, fileName)
-      
+
       toast.success('Файл успешно экспортирован')
       setExcelExporting(false)
     } catch (error) {
       console.error('Error exporting Excel:', error)
       toast.error('Произошла ошибка при экспорте в Excel')
       setExcelExporting(false)
+    }
+  }
+
+  const handlePrint = () => {
+    printRows('Каталог товаров', buildProductsExportData())
+  }
+
+  const handleShare = async () => {
+    setSharing(true)
+    try {
+      await shareRowsAsImage('Каталог товаров', buildProductsExportData(), `products_${new Date().toISOString().split('T')[0]}`)
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -128,6 +171,26 @@ const ProductsPage = () => {
             <span className="hidden sm:inline">{excelExporting ? 'Экспорт...' : 'Экспорт в Excel'}</span>
           </button>
 
+          <button
+            onClick={handlePrint}
+            disabled={filtered.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Печать"
+          >
+            <Printer size={16} />
+            <span className="hidden sm:inline">Печать</span>
+          </button>
+
+          <button
+            onClick={handleShare}
+            disabled={sharing || filtered.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Отправить"
+          >
+            {sharing ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+            <span className="hidden sm:inline">{sharing ? 'Отправка...' : 'Отправить'}</span>
+          </button>
+
           <div className="relative w-full sm:w-72">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -137,6 +200,20 @@ const ProductsPage = () => {
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          <select
+            value={supplierFilter}
+            onChange={(e) => setSupplierFilter(e.target.value)}
+            className="rounded-xl border border-slate-300 pl-3 pr-8 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+          >
+            <option value="all">Все поставщики</option>
+            <option value="none">Без поставщика</option>
+            {uniqueSuppliers.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
 
           {isAdmin && (
             <button
@@ -175,6 +252,9 @@ const ProductsPage = () => {
                       </p>
                       <div className="text-xs text-slate-500">
                         <span className="text-slate-400">Артикул:</span> <span className="font-mono">{p.product_code}</span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        <span className="text-slate-400">Поставщик:</span> {p.last_supplier_name || <span className="text-slate-400">—</span>}
                       </div>
                     </div>
                   </div>
@@ -215,11 +295,15 @@ const ProductsPage = () => {
                   <div className="flex flex-wrap gap-3 text-sm">
                     <div className="inline-flex items-center gap-1">
                       <span className="text-slate-500">Закупка:</span>
-                      <span className="font-medium text-slate-700">{p.purchase_cost} c</span>
+                      <span className="font-medium text-slate-700">
+                        {p.purchase_cost} {getCurrencyDisplay(p.currency || 'somoni')}
+                      </span>
                     </div>
                     <div className="inline-flex items-center gap-1">
                       <span className="text-slate-500">Продажа:</span>
-                      <span className="font-semibold text-emerald-600">{p.selling_price} c</span>
+                      <span className="font-semibold text-emerald-600">
+                        {p.selling_price} {getCurrencyDisplay(p.currency || 'somoni')}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -231,7 +315,9 @@ const ProductsPage = () => {
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-slate-500">Последняя цена:</span>
-                    <span className="font-medium text-slate-800">{p.last_unit_price} c</span>
+                    <span className="font-medium text-slate-800">
+                      {p.last_unit_price} {getCurrencyDisplay(p.currency || 'somoni')}
+                    </span>
                   </div>
                 </div>
 
@@ -263,6 +349,9 @@ const ProductsPage = () => {
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Производитель
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Поставщик
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Закупка
@@ -297,7 +386,9 @@ const ProductsPage = () => {
                           {p.name}
                         </div>
                         <div className="text-xs text-slate-500 mt-0.5">
-                          <span className="font-medium">{p.last_unit_price} c</span>
+                          <span className="font-medium">
+                            {p.last_unit_price} {getCurrencyDisplay(p.currency || 'somoni')}
+                          </span>
                           <span className="text-slate-400 ml-1">последняя</span>
                         </div>
                       </div>
@@ -316,11 +407,18 @@ const ProductsPage = () => {
                       </span>
                     </div>
                   </td>
+                  <td className="px-6 py-4">
+                    <div className="max-w-[150px]">
+                      <span className={`text-sm ${p.last_supplier_name ? 'text-slate-600' : 'text-slate-400 italic'}`}>
+                        {p.last_supplier_name || '—'}
+                      </span>
+                    </div>
+                  </td>
 
                   <td className="px-6 py-4 text-right">
                     <div className="inline-flex items-center justify-end gap-1">
                       <span className="text-slate-600 font-medium">{p.purchase_cost}</span>
-                      <span className="text-xs text-slate-400">c</span>
+                      <span className="text-xs text-slate-400">{getCurrencyDisplay(p.currency || 'somoni')}</span>
                     </div>
                   </td>
 
@@ -329,7 +427,7 @@ const ProductsPage = () => {
                       <span className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
                         {p.selling_price}
                       </span>
-                      <span className="text-xs text-emerald-400">c</span>
+                      <span className="text-xs text-emerald-400">{getCurrencyDisplay(p.currency || 'somoni')}</span>
                     </div>
                   </td>
 
@@ -391,7 +489,7 @@ const ProductsPage = () => {
 
               {!filtered.length && (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="py-16 text-center">
+                  <td colSpan={isAdmin ? 9 : 8} className="py-16 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
                         <Package className="w-6 h-6 text-slate-400" />
@@ -418,21 +516,14 @@ const ProductsPage = () => {
                 <span>товаров</span>
               </div>
 
-              {/* Общая стоимость */}
-              <div className="flex items-center gap-2">
+              {/* Общая стоимость по валютам */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span>Итого</span>
-                <span className="font-medium">
-                  {filtered
-                    .reduce(
-                      (sum, p) =>
-                        sum +
-                        Number(p.purchase_cost || 0) *
-                        Number(p.total_stock || 0),
-                      0
-                    )
-                    .toFixed(2)}{" "}
-                  смн.
-                </span>
+                {Object.entries(totalsByCurrency).map(([currency, total]) => (
+                  <span key={currency} className="font-medium">
+                    {total.toFixed(2)} {getCurrencyDisplay(currency)}
+                  </span>
+                ))}
               </div>
 
               {/* Общий остаток */}

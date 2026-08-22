@@ -4,10 +4,11 @@ import { useGetSuppliersQuery } from '@/features/suppliers/api/suppliers.api'
 import { useGetWarehouseDeliveryDriversQuery } from '@/features/warehouses/api/warehouses.api'
 import { usePostReceiptMutation } from '../api/receipt.api'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { Trash2, PackagePlus, Upload, Download, RotateCw } from 'lucide-react'
+import { Trash2, PackagePlus, Upload, Download, RotateCw, Printer, Share2, Loader2 } from 'lucide-react'
 import type { TReceiptItem } from '../model/receipt.types'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
+import { printRows, shareRowsAsImage } from '@/shared/utils/documentActions'
 
 const num = (v: string) => (v ? Number(v) : 0)
 const onlyNumber = (v: string) => /^\d*(\.\d*)?$/.test(v)
@@ -104,6 +105,7 @@ const AdminReceiptForm = ({
   const [excelImporting, setExcelImporting] = useState(false)
   // State for Excel export
   const [excelExporting, setExcelExporting] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   // Refs for Excel-like navigation
   const inputRefs = useRef<Map<number, Map<string, HTMLInputElement | HTMLSelectElement | null>>>(new Map())
@@ -399,66 +401,79 @@ const AdminReceiptForm = ({
     fileInput?.click()
   }
 
+  // Build the export rows shared by Excel export, print and share
+  const buildReceiptExportData = (): Record<string, string | number>[] => {
+    const exportData: Record<string, string | number>[] = items.map((item, index) => ({
+      '#': (index + 1).toString(),
+      'Товар': item.product_name || products.find(p => p.id.toString() === item.product_id)?.name || item.product_id || '',
+      'Коробки': item.boxes_qty || 0,
+      'Шт. в кор.': item.pieces_per_box || 0,
+      'Отд. шт.': item.loose_pieces || 0,
+      'Цена зак.': item.purchase_cost || 0,
+      'Наценка %': item.markup_percent || 0,
+      'Цена прод.': item.selling_price || 0,
+      'Сумма': item.amount || 0,
+      'Вес кг': item.weight_kg || '',
+      'Объем м3': item.volume_cbm || ''
+    }))
+
+    const totalAmount = items.reduce((sum, item) => {
+      const amount = parseFloat(item.amount);
+      return sum + (isNaN(amount) ? 0 : amount);
+    }, 0);
+
+    exportData.push({
+      '#': 'ИТОГО',
+      'Товар': 'ИТОГО:',
+      'Коробки': '',
+      'Шт. в кор.': '',
+      'Отд. шт.': '',
+      'Цена зак.': '',
+      'Наценка %': '',
+      'Цена прод.': '',
+      'Сумма': totalAmount.toString(),
+      'Вес кг': '',
+      'Объем м3': ''
+    });
+
+    return exportData
+  }
+
+  const buildReceiptWorkbook = () => {
+    const worksheet = XLSX.utils.json_to_sheet(buildReceiptExportData())
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары')
+    const fileName = `receipt_items_${new Date().toISOString().split('T')[0]}.xlsx`
+    return { workbook, fileName }
+  }
+
   // Handle Excel file export
   const handleExcelExport = () => {
     setExcelExporting(true)
-    
-    try {
-      // Prepare data for export
-      const exportData = items.map((item, index) => ({
-        '#': (index + 1).toString(),
-        'Товар': item.product_name || products.find(p => p.id.toString() === item.product_id)?.name || item.product_id || '',
-        'Коробки': item.boxes_qty || 0,
-        'Шт. в кор.': item.pieces_per_box || 0,
-        'Отд. шт.': item.loose_pieces || 0,
-        'Цена зак.': item.purchase_cost || 0,
-        'Наценка %': item.markup_percent || 0,
-        'Цена прод.': item.selling_price || 0,
-        'Сумма': item.amount || 0,
-        'Вес кг': item.weight_kg || '',
-        'Объем м3': item.volume_cbm || ''
-      }))
-      
-      // Calculate total amount
-      const totalAmount = items.reduce((sum, item) => {
-        const amount = parseFloat(item.amount);
-        return sum + (isNaN(amount) ? 0 : amount);
-      }, 0);
-      
-      // Add total row to the export data
-      exportData.push({
-        '#': 'ИТОГО',
-        'Товар': 'ИТОГО:',
-        'Коробки': '',
-        'Шт. в кор.': '',
-        'Отд. шт.': '',
-        'Цена зак.': '',
-        'Наценка %': '',
-        'Цена прод.': '',
-        'Сумма': totalAmount.toString(),
-        'Вес кг': '',
-        'Объем м3': ''
-      });
 
-      // Create worksheet
-      const worksheet = XLSX.utils.json_to_sheet(exportData)
-      
-      // Create workbook
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Товары')
-      
-      // Generate filename with timestamp
-      const fileName = `receipt_items_${new Date().toISOString().split('T')[0]}.xlsx`
-      
-      // Export file
+    try {
+      const { workbook, fileName } = buildReceiptWorkbook()
       XLSX.writeFile(workbook, fileName)
-      
+
       toast.success('Файл успешно экспортирован')
       setExcelExporting(false)
     } catch (error) {
       console.error('Error exporting Excel:', error)
       toast.error('Произошла ошибка при экспорте в Excel')
       setExcelExporting(false)
+    }
+  }
+
+  const handlePrintReceipt = () => {
+    printRows('Приход товаров', buildReceiptExportData())
+  }
+
+  const handleShareReceipt = async () => {
+    setSharing(true)
+    try {
+      await shareRowsAsImage('Приход товаров', buildReceiptExportData(), `receipt_items_${new Date().toISOString().split('T')[0]}`)
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -708,6 +723,22 @@ const totalAmount = items.reduce(
           className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm"
         >
           <Download size={14} /> {excelExporting ? 'Экспорт...' : 'Экспорт в Excel'}
+        </button>
+
+        <button
+          onClick={handlePrintReceipt}
+          disabled={items.length === 0}
+          className="flex items-center gap-1 text-slate-600 hover:text-slate-800 text-sm"
+        >
+          <Printer size={14} /> Печать
+        </button>
+
+        <button
+          onClick={handleShareReceipt}
+          disabled={sharing || items.length === 0}
+          className="flex items-center gap-1 text-slate-600 hover:text-slate-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {sharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />} {sharing ? 'Отправка...' : 'Отправить'}
         </button>
       </div>
 

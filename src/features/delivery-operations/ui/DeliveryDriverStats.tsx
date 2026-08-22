@@ -10,10 +10,10 @@ export const DeliveryDriverStats = ({ driverId }: DeliveryDriverStatsProps) => {
 
   if (isLoading || !operations) return null
 
-  const totalReceiptAmount = operations
-    .filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.receipt_amount)
+  const totalSum = operations
+    .filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.sum)
     .reduce((sum: number, op: DeliveryOperation) => {
-      const amount = parseFloat(op.receipt_amount ?? '0')
+      const amount = parseFloat(op.sum ?? '0')
       return sum + (isNaN(amount) ? 0 : amount)
     }, 0)
 
@@ -24,14 +24,14 @@ export const DeliveryDriverStats = ({ driverId }: DeliveryDriverStatsProps) => {
       return sum + (isNaN(amount) ? 0 : amount)
     }, 0)
 
-  if (totalReceiptAmount === 0 && totalPayment === 0) return null
+  if (totalSum === 0 && totalPayment === 0) return null
 
   return (
     <>
-      {totalReceiptAmount > 0 && (
+      {totalSum > 0 && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-500">Сумма прихода</span>
-          <span className="text-sm font-semibold text-emerald-600">{totalReceiptAmount.toFixed(2)}</span>
+          <span className="text-sm text-slate-500">Общая сумма</span>
+          <span className="text-sm font-semibold text-emerald-600">{totalSum.toFixed(2)}</span>
         </div>
       )}
       {totalPayment > 0 && (

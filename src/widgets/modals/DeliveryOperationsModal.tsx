@@ -1,7 +1,11 @@
-import { X, ArrowUpCircle, ArrowDownCircle, Edit2, Save, X as XIcon } from 'lucide-react'
+import { ChevronDown, X, ArrowUpCircle, ArrowDownCircle, Edit2, Save, X as XIcon, BarChart3 } from 'lucide-react'
 import { useGetDeliveryOperationsQuery, useUpdateDeliveryCostMutation } from '@/features/delivery-operations/hooks/delivery-operations.hooks'
 import type { DeliveryOperation } from '@/features/delivery-operations/model/delivery-operations.schemas'
-import { useState } from 'react'
+import { calculateDeliveryStats } from '@/features/delivery-operations/lib/calculateDeliveryStats'
+import { MONTH_NAMES, MONTH_SHORT_NAMES, formatDateParam } from '@/features/delivery-operations/lib/dateFilters'
+import { DeliveryDriverStatsModal } from '@/widgets/modals/DeliveryDriverStatsModal'
+import { OperationDetailsModal } from '@/widgets/modals/OperationDetailsModal'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface DeliveryOperationsModalProps {
   isOpen: boolean
@@ -12,10 +16,55 @@ interface DeliveryOperationsModalProps {
 }
 
 export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName, onBalanceUpdate }: DeliveryOperationsModalProps) => {
-  const { data: operations, isLoading, isError } = useGetDeliveryOperationsQuery({ driverId })
+  const currentYear = new Date().getFullYear()
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([])
+  const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false)
+  const [showStatsModal, setShowStatsModal] = useState(false)
+  const [selectedOperation, setSelectedOperation] = useState<{ id: number; type: string; date: string; sum: number; receipt_id?: number } | null>(null)
+  const monthDropdownRef = useRef<HTMLDivElement>(null)
+
+  const dateFilters = useMemo(() => {
+    if (!selectedYear) return {}
+    const start = new Date(selectedYear, 0, 1)
+    const end = new Date(selectedYear, 11, 31)
+    return { start_date: formatDateParam(start), end_date: formatDateParam(end) }
+  }, [selectedYear])
+
+  const { data: rawOperations, isLoading, isError } = useGetDeliveryOperationsQuery({ driverId, ...dateFilters })
   const [updateDeliveryCost] = useUpdateDeliveryCostMutation()
   const [editingOperation, setEditingOperation] = useState<number | null>(null)
   const [editForm, setEditForm] = useState({ delivery_cost: '', currency: '', rate: '' })
+
+  const operations = useMemo(() => {
+    if (!rawOperations || selectedMonths.length === 0) return rawOperations
+    return rawOperations.filter((op: DeliveryOperation) => selectedMonths.includes(new Date(op.date).getMonth() + 1))
+  }, [rawOperations, selectedMonths])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(e.target as Node)) {
+        setIsMonthDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleYearChange = (value: string) => {
+    setSelectedYear(value ? parseInt(value) : null)
+    if (!value) setSelectedMonths([])
+  }
+
+  const toggleMonth = (month: number) => {
+    setSelectedMonths((prev) => prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month].sort((a, b) => a - b))
+  }
+
+  const monthDropdownLabel = selectedMonths.length === 0
+    ? 'Все месяцы'
+    : selectedMonths.length === 1
+      ? MONTH_NAMES[selectedMonths[0] - 1]
+      : `Выбрано: ${selectedMonths.length}`
 
   if (!isOpen) return null
 
@@ -55,6 +104,16 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
     setEditForm({ delivery_cost: '', currency: '', rate: '' })
   }
 
+  const handleOperationClick = (operation: DeliveryOperation) => {
+    setSelectedOperation({
+      id: operation.id,
+      type: operation.type,
+      date: operation.date,
+      sum: parseFloat(operation.sum) || 0,
+      receipt_id: operation.stock_receipt_id ?? undefined
+    })
+  }
+
   const formatCurrency = (amount: string | null, currency: string | null = null) => {
     if (!amount) return '—'
     const formattedAmount = parseFloat(amount).toFixed(2)
@@ -82,106 +141,127 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
     return ((delivery / converted) * 100).toFixed(2)
   }
 
-  const calculateAveragePercentage = () => {
-    if (!operations) return null
-    const receiptOperations = operations.filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.converted_sum && op.sum)
-    if (receiptOperations.length === 0) return null
+  const deliveryStats = useMemo(() => calculateDeliveryStats(operations), [operations])
 
-    const percentages = receiptOperations.map((op: DeliveryOperation) => {
-      const percentage = calculatePercentage(op.sum, op.converted_sum)
-      return percentage ? parseFloat(percentage) : null
-    }).filter((p: number | null): p is number => p !== null)
-
-    if (percentages.length === 0) return null
-    const average = percentages.reduce((sum: number, p: number) => sum + p, 0) / percentages.length
-    return average.toFixed(2)
-  }
-
-  const calculateTotalReceiptAmount = () => {
-    if (!operations) return null
-    const total = operations
-      .filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.receipt_amount)
-      .reduce((sum: number, op: DeliveryOperation) => {
-        const amount = parseFloat(op.receipt_amount ?? '0')
-        return sum + (isNaN(amount) ? 0 : amount)
-      }, 0)
-    return total > 0 ? total.toFixed(2) : null
-  }
-
-  const calculateTotalPayment = () => {
-    if (!operations) return null
-    const total = operations
-      .filter((op: DeliveryOperation) => op.type !== 'RECEIPT' && op.sum)
-      .reduce((sum: number, op: DeliveryOperation) => {
-        const amount = parseFloat(op.sum ?? '0')
-        return sum + (isNaN(amount) ? 0 : amount)
-      }, 0)
-    return total > 0 ? total.toFixed(2) : null
-  }
-
-  const calculateWeightedAveragePercentage = () => {
-    if (!operations) return null
-    const receiptOperations = operations.filter((op: DeliveryOperation) => op.type === 'RECEIPT' && op.converted_sum && op.sum)
-    if (receiptOperations.length === 0) return null
-
-    const totalDeliveryCost = receiptOperations.reduce((sum: number, op: DeliveryOperation) => {
-      const cost = parseFloat(op.sum)
-      return sum + (isNaN(cost) ? 0 : cost)
-    }, 0)
-    const totalConvertedSum = receiptOperations.reduce((sum: number, op: DeliveryOperation) => {
-      const cs = parseFloat(String(op.converted_sum ?? 0))
-      return sum + (isNaN(cs) ? 0 : cs)
-    }, 0)
-
-    if (totalConvertedSum === 0) return null
-    return ((totalDeliveryCost / totalConvertedSum) * 100).toFixed(2)
-  }
+  const stats: { label: string; value: string; suffix?: string; className: string }[] = [
+    { label: 'Средний %', value: deliveryStats.averagePercentage ?? '', suffix: '%', className: 'bg-blue-50 text-blue-700' },
+    { label: 'Взвешенный %', value: deliveryStats.weightedAveragePercentage ?? '', suffix: '%', className: 'bg-violet-50 text-violet-700' },
+    { label: 'Общая сумма', value: deliveryStats.totalSum ?? '', className: 'bg-slate-100 text-slate-700' },
+    { label: 'Общая конв. сумма', value: deliveryStats.totalConvertedSum ?? '', className: 'bg-violet-50 text-violet-700' }
+  ].filter((stat) => stat.value)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 shrink-0">
           <div>
             <h2 className="text-xl font-semibold text-slate-800">Операции доставщика</h2>
             <p className="text-sm text-slate-500 mt-1">{driverName}</p>
-            {calculateAveragePercentage() && (
-              <div className="mt-2">
-                <span className="text-sm text-slate-600">Средний процент доставки: </span>
-                <span className="text-sm font-semibold text-blue-600">{calculateAveragePercentage()}%</span>
+            <div className="mt-2.5 flex items-center gap-2">
+              <select
+                value={selectedYear ?? ''}
+                onChange={(e) => handleYearChange(e.target.value)}
+                className="px-2 py-1 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white"
+              >
+                <option value="">Все годы</option>
+                {Array.from({ length: 6 }, (_, i) => currentYear - i).map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+              <div className="relative" ref={monthDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => selectedYear && setIsMonthDropdownOpen((v) => !v)}
+                  disabled={!selectedYear}
+                  className="flex items-center gap-1 px-2 py-1 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {monthDropdownLabel}
+                  <ChevronDown size={14} className="text-slate-400" />
+                </button>
+                {isMonthDropdownOpen && selectedYear && (
+                  <div className="absolute z-10 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-2.5">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {MONTH_SHORT_NAMES.map((name, i) => {
+                        const month = i + 1
+                        const isSelected = selectedMonths.includes(month)
+                        return (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => toggleMonth(month)}
+                            className={`px-2 py-1.5 rounded-lg text-sm font-medium transition ${
+                              isSelected
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMonths(MONTH_NAMES.map((_, i) => i + 1))}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Выбрать всё
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMonths([])}
+                        className="text-xs text-slate-500 hover:text-slate-700 font-medium"
+                      >
+                        Сбросить
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            {calculateWeightedAveragePercentage() && (
-              <div className="mt-1">
-                <span className="text-sm text-slate-600">Взвешенный процент доставки: </span>
-                <span className="text-sm font-semibold text-violet-600">{calculateWeightedAveragePercentage()}%</span>
-              </div>
-            )}
-            <div className="mt-2 flex flex-wrap gap-4">
-              {calculateTotalReceiptAmount() && (
-                <div>
-                  <span className="text-sm text-slate-600">Общая сумма прихода: </span>
-                  <span className="text-sm font-semibold text-emerald-600">{calculateTotalReceiptAmount()}</span>
-                </div>
-              )}
-              {calculateTotalPayment() && (
-                <div>
-                  <span className="text-sm text-slate-600">Сумма оплаты: </span>
-                  <span className="text-sm font-semibold text-red-600">{calculateTotalPayment()}</span>
-                </div>
+              {(selectedYear || selectedMonths.length > 0) && (
+                <button
+                  onClick={() => { setSelectedYear(null); setSelectedMonths([]) }}
+                  className="text-xs text-slate-500 hover:text-slate-700 underline"
+                >
+                  Сбросить
+                </button>
               )}
             </div>
+            {stats.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {stats.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${stat.className}`}
+                  >
+                    <span className="opacity-70 font-normal">{stat.label}:</span>
+                    <span>{stat.value}{stat.suffix ?? ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-slate-100 transition"
-          >
-            <X size={20} className="text-slate-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowStatsModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition"
+            >
+              <BarChart3 size={16} />
+              Статистика
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-slate-100 transition"
+            >
+              <X size={20} className="text-slate-500" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {isLoading ? (
             <div className="text-sm text-slate-500">Загрузка операций...</div>
           ) : isError ? (
@@ -201,13 +281,17 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                       <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Курс</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">Сумма прихода</th>
                       <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">Конвертированная сумма</th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">%</th>
+                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">Ср. %</th>
                       <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Действия</th>
                     </tr>
                   </thead>
                   <tbody>
                     {operations.map((operation: DeliveryOperation) => (
-                      <tr key={operation.id} className="border-t hover:bg-slate-50 transition">
+                      <tr
+                        key={operation.id}
+                        className="border-t hover:bg-slate-50 transition cursor-pointer"
+                        onClick={() => handleOperationClick(operation)}
+                      >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             {operation.type === 'RECEIPT' ? (
@@ -251,7 +335,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                             '—'
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                           {operation.type === 'RECEIPT' && operation.stock_receipt_id ? (
                             editingOperation === operation.id ? (
                               <div className="flex items-center justify-center gap-2">
@@ -307,7 +391,11 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
               {/* Mobile cards */}
               <div className="sm:hidden space-y-3">
                 {operations.map((operation: DeliveryOperation) => (
-                  <div key={operation.id} className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm">
+                  <div
+                    key={operation.id}
+                    className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:bg-slate-50 transition"
+                    onClick={() => handleOperationClick(operation)}
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
                         {operation.type === 'RECEIPT' ? (
@@ -348,7 +436,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                     )}
                     {operation.type === 'RECEIPT' && (
                       <div className="mt-2 text-sm">
-                        <span className="text-slate-500">% доставки: </span>
+                        <span className="text-slate-500">Ср. %: </span>
                         {calculatePercentage(operation.sum, operation.converted_sum) ? (
                           <span className="font-medium text-blue-600">
                             {calculatePercentage(operation.sum, operation.converted_sum)}%
@@ -359,7 +447,7 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
                       </div>
                     )}
                     {operation.type === 'RECEIPT' && operation.stock_receipt_id && (
-                      <div className="mt-3 pt-3 border-t border-slate-100">
+                      <div className="mt-3 pt-3 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
                         {editingOperation === operation.id ? (
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
@@ -422,6 +510,23 @@ export const DeliveryOperationsModal = ({ isOpen, onClose, driverId, driverName,
           )}
         </div>
       </div>
+
+      <DeliveryDriverStatsModal
+        isOpen={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+        driverId={driverId}
+        driverName={driverName}
+      />
+
+      {selectedOperation && (
+        <OperationDetailsModal
+          isOpen={!!selectedOperation}
+          onClose={() => setSelectedOperation(null)}
+          operation={selectedOperation}
+          supplierId={0}
+          warehouseId={0}
+        />
+      )}
     </div>
   )
 }

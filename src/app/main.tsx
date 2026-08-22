@@ -1,4 +1,5 @@
  import { createRoot } from 'react-dom/client'
+import { Toaster } from 'sonner'
 import '../index.css'
 import { StoreProvider } from './providers/store.provider.tsx'
 import { RoutersProvider } from './providers/router.provider.tsx'
@@ -8,6 +9,7 @@ createRoot(document.getElementById('root')!).render(
      <StoreProvider>
       <AuthProvider>
         <RoutersProvider />
+        <Toaster richColors position="top-right" />
       </AuthProvider>
     </StoreProvider>
  )

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
-import { X, Package, Hash, Calendar, User, Coins, Download } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Package, Hash, Calendar, User, Coins, Download, Printer, Share2, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Loading } from '@/shared/ui/Loading';
+import { printHtml, shareRowsAsImage } from '@/shared/utils/documentActions';
 
 
 import { useGetSaleByIdQuery } from '@/features/sales/api/sales.api';
@@ -26,6 +27,7 @@ export const SalesDetailModal = ({
     skip: !isOpen || !saleId,
     refetchOnMountOrArgChange: true,
   });
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     if (isOpen && saleId) {
@@ -50,14 +52,12 @@ export const SalesDetailModal = ({
     };
   }, [isOpen, onClose]);
 
-  // Export to Excel function
-  const exportToExcel = () => {
-    if (!saleData) return;
-    
-    // Create worksheet data
+  // Build the workbook shared by Excel export and share
+  const buildSaleWorkbook = () => {
+    if (!saleData) return null;
+
     const headers = ['Товар', 'Артикул', 'Количество', 'Цена за единицу', 'Общая сумма'];
-    
-    // Header information
+
     const headerData = [
       [`Детали продажи #${saleId}`, '', '', '', ''],
       [`Клиент: ${saleData.customer_name || '—'}`, '', '', '', ''],
@@ -66,8 +66,7 @@ export const SalesDetailModal = ({
       ['', '', '', '', ''],
       headers
     ];
-    
-    // Items data
+
     const itemsData = saleData.items.map(item => [
       item.product_name,
       item.product_code || '',
@@ -75,19 +74,14 @@ export const SalesDetailModal = ({
       item.unit_price,
       item.total_price
     ]);
-    
-    // Summary row
+
     const summaryData = [
       ['', '', '', 'Итого:', saleData.total_amount]
     ];
-    
-    // Combine all data
+
     const worksheetData = [...headerData, ...itemsData, ...summaryData];
-    
-    // Create worksheet
+
     const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-    
-    // Set column widths
     ws['!cols'] = [
       { wch: 25 }, // Товар
       { wch: 15 }, // Артикул
@@ -95,13 +89,100 @@ export const SalesDetailModal = ({
       { wch: 15 }, // Цена за единицу
       { wch: 15 }  // Общая сумма
     ];
-    
-    // Create workbook
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Детали продажи');
-    
-    // Export to Excel file
-    XLSX.writeFile(wb, `sale_${saleId}_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    const fileName = `sale_${saleId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    return { workbook: wb, fileName };
+  };
+
+  // Export to Excel function
+  const exportToExcel = () => {
+    const result = buildSaleWorkbook();
+    if (!result) return;
+    XLSX.writeFile(result.workbook, result.fileName);
+  };
+
+  const printSale = () => {
+    if (!saleData) return;
+
+    const itemsRows = saleData.items
+      .map(
+        (item) => `
+        <tr>
+          <td>${item.product_name}</td>
+          <td>${item.product_code || ''}</td>
+          <td>${item.quantity}</td>
+          <td>${item.unit_price.toLocaleString()}</td>
+          <td>${item.total_price.toLocaleString()}</td>
+        </tr>`
+      )
+      .join('');
+
+    const bodyHtml = `
+      <h1>Детали продажи #${saleId}</h1>
+      <p class="subtitle">
+        Клиент: ${saleData.customer_name || '—'} &nbsp;|&nbsp;
+        Дата: ${new Date(saleData.created_at).toLocaleDateString('ru-RU')} &nbsp;|&nbsp;
+        Статус оплаты: ${saleData.payment_status === 'DEBT' ? 'В долг' : 'Оплачено'}
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Товар</th>
+            <th>Артикул</th>
+            <th>Кол-во</th>
+            <th>Цена</th>
+            <th>Сумма</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRows}
+          <tr class="total-row">
+            <td></td><td></td><td></td>
+            <td>Итого:</td>
+            <td>${saleData.total_amount.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    printHtml(`Детали продажи #${saleId}`, bodyHtml);
+  };
+
+  const shareSale = async () => {
+    if (!saleData) return;
+
+    const rows: Record<string, string | number>[] = saleData.items.map((item) => ({
+      'Товар': item.product_name,
+      'Артикул': item.product_code || '',
+      'Кол-во': item.quantity,
+      'Цена': item.unit_price,
+      'Сумма': item.total_price,
+    }));
+
+    rows.push({
+      'Товар': 'ИТОГО',
+      'Артикул': '',
+      'Кол-во': '',
+      'Цена': '',
+      'Сумма': saleData.total_amount,
+    });
+
+    setSharing(true);
+    try {
+      await shareRowsAsImage(
+        `Детали продажи #${saleId}`,
+        rows,
+        `sale_${saleId}_${new Date().toISOString().split('T')[0]}`,
+        {
+          subtitle: `Клиент: ${saleData.customer_name || '—'} | Дата: ${new Date(saleData.created_at).toLocaleDateString('ru-RU')}`,
+        }
+      );
+    } finally {
+      setSharing(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -124,6 +205,21 @@ export const SalesDetailModal = ({
             >
               <Download size={18} />
               <span>Экспорт в Excel</span>
+            </button>
+            <button
+              onClick={printSale}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors"
+            >
+              <Printer size={18} />
+              <span>Печать</span>
+            </button>
+            <button
+              onClick={shareSale}
+              disabled={sharing}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sharing ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} />}
+              <span>{sharing ? 'Отправка...' : 'Отправить'}</span>
             </button>
           </div>
           <button
