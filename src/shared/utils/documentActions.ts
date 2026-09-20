@@ -134,6 +134,21 @@ const truncateText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: num
   return `${truncated}…`
 }
 
+// canvas.toDataURL is synchronous, unlike canvas.toBlob (which defers its callback to a
+// later task). Decoding the data URL by hand keeps the whole image-generation step
+// synchronous too, so nothing runs between the click and navigator.share() — on mobile,
+// any task-queue gap there can expire the browser's "user gesture" window and make
+// navigator.share() reject, which otherwise looks exactly like a random failure.
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [header, base64] = dataUrl.split(',')
+  const mimeMatch = header.match(/data:(.*?);base64/)
+  const mime = mimeMatch ? mimeMatch[1] : 'image/png'
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
+}
+
 // A tall image is awkward to view in a chat (and risks hitting the browser's canvas size
 // limit), so long tables are split into several page-sized images instead of one giant one.
 const MAX_ROWS_PER_IMAGE = 40
@@ -164,101 +179,94 @@ const splitRowsIntoPages = (
 
 /**
  * Renders a list of plain-object rows (same shape used to build an Excel sheet) as a
- * PNG image — legible when pasted or attached directly into a chat app.
+ * PNG image — legible when pasted or attached directly into a chat app. Synchronous on
+ * purpose (see dataUrlToBlob above).
  */
 const rowsToImageBlob = (
   title: string,
   rows: Record<string, string | number>[],
   options?: { subtitle?: string }
-): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    if (!rows.length) {
-      reject(new Error('No rows to render'))
-      return
-    }
+): Blob => {
+  if (!rows.length) {
+    throw new Error('No rows to render')
+  }
 
-    const headers = Object.keys(rows[0])
-    const measureCanvas = document.createElement('canvas')
-    const measureCtx = measureCanvas.getContext('2d')
-    if (!measureCtx) {
-      reject(new Error('Canvas not supported'))
-      return
-    }
-    const colWidths = measureColumnWidths(measureCtx, headers, rows)
+  const headers = Object.keys(rows[0])
+  const measureCanvas = document.createElement('canvas')
+  const measureCtx = measureCanvas.getContext('2d')
+  if (!measureCtx) {
+    throw new Error('Canvas not supported')
+  }
+  const colWidths = measureColumnWidths(measureCtx, headers, rows)
 
-    const padding = 20
-    const rowHeight = 32
-    const headerHeight = 38
-    const titleHeight = options?.subtitle ? 60 : 44
-    const tableWidth = colWidths.reduce((a, b) => a + b, 0)
-    const width = tableWidth + padding * 2
-    const height = titleHeight + headerHeight + rows.length * rowHeight + padding * 2
+  const padding = 20
+  const rowHeight = 32
+  const headerHeight = 38
+  const titleHeight = options?.subtitle ? 60 : 44
+  const tableWidth = colWidths.reduce((a, b) => a + b, 0)
+  const width = tableWidth + padding * 2
+  const height = titleHeight + headerHeight + rows.length * rowHeight + padding * 2
 
-    const scale = 2
-    const canvas = document.createElement('canvas')
-    canvas.width = width * scale
-    canvas.height = height * scale
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      reject(new Error('Canvas not supported'))
-      return
-    }
-    ctx.scale(scale, scale)
-    ctx.textBaseline = 'middle'
+  const scale = 2
+  const canvas = document.createElement('canvas')
+  canvas.width = width * scale
+  canvas.height = height * scale
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Canvas not supported')
+  }
+  ctx.scale(scale, scale)
+  ctx.textBaseline = 'middle'
 
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, width, height)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, width, height)
 
-    ctx.fillStyle = '#0f172a'
-    ctx.font = 'bold 20px Arial'
-    ctx.fillText(title, padding, padding + 12)
+  ctx.fillStyle = '#0f172a'
+  ctx.font = 'bold 20px Arial'
+  ctx.fillText(title, padding, padding + 12)
 
-    if (options?.subtitle) {
-      ctx.fillStyle = '#64748b'
-      ctx.font = '13px Arial'
-      ctx.fillText(options.subtitle, padding, padding + 34)
-    }
+  if (options?.subtitle) {
+    ctx.fillStyle = '#64748b'
+    ctx.font = '13px Arial'
+    ctx.fillText(options.subtitle, padding, padding + 34)
+  }
 
-    let y = titleHeight + padding
-    ctx.fillStyle = '#f1f5f9'
-    ctx.fillRect(padding, y, tableWidth, headerHeight)
-    ctx.strokeStyle = '#cbd5e1'
-    ctx.strokeRect(padding, y, tableWidth, headerHeight)
+  let y = titleHeight + padding
+  ctx.fillStyle = '#f1f5f9'
+  ctx.fillRect(padding, y, tableWidth, headerHeight)
+  ctx.strokeStyle = '#cbd5e1'
+  ctx.strokeRect(padding, y, tableWidth, headerHeight)
 
-    ctx.fillStyle = '#334155'
-    ctx.font = 'bold 13px Arial'
-    let x = padding
-    headers.forEach((header, i) => {
-      ctx.fillText(truncateText(ctx, header, colWidths[i] - 16), x + 8, y + headerHeight / 2)
-      x += colWidths[i]
-    })
-    y += headerHeight
-
-    rows.forEach((row) => {
-      const isTotal = String(row[headers[0]] ?? '').toUpperCase() === 'ИТОГО'
-      if (isTotal) {
-        ctx.fillStyle = '#f8fafc'
-        ctx.fillRect(padding, y, tableWidth, rowHeight)
-      }
-      ctx.strokeStyle = '#e2e8f0'
-      ctx.strokeRect(padding, y, tableWidth, rowHeight)
-
-      ctx.fillStyle = isTotal ? '#0f172a' : '#1e293b'
-      ctx.font = isTotal ? 'bold 13px Arial' : '13px Arial'
-      let cx = padding
-      headers.forEach((header, i) => {
-        const text = truncateText(ctx, String(row[header] ?? ''), colWidths[i] - 16)
-        ctx.fillText(text, cx + 8, y + rowHeight / 2)
-        cx += colWidths[i]
-      })
-      y += rowHeight
-    })
-
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error('Canvas toBlob failed'))
-    }, 'image/png')
+  ctx.fillStyle = '#334155'
+  ctx.font = 'bold 13px Arial'
+  let x = padding
+  headers.forEach((header, i) => {
+    ctx.fillText(truncateText(ctx, header, colWidths[i] - 16), x + 8, y + headerHeight / 2)
+    x += colWidths[i]
   })
+  y += headerHeight
+
+  rows.forEach((row) => {
+    const isTotal = String(row[headers[0]] ?? '').toUpperCase() === 'ИТОГО'
+    if (isTotal) {
+      ctx.fillStyle = '#f8fafc'
+      ctx.fillRect(padding, y, tableWidth, rowHeight)
+    }
+    ctx.strokeStyle = '#e2e8f0'
+    ctx.strokeRect(padding, y, tableWidth, rowHeight)
+
+    ctx.fillStyle = isTotal ? '#0f172a' : '#1e293b'
+    ctx.font = isTotal ? 'bold 13px Arial' : '13px Arial'
+    let cx = padding
+    headers.forEach((header, i) => {
+      const text = truncateText(ctx, String(row[header] ?? ''), colWidths[i] - 16)
+      ctx.fillText(text, cx + 8, y + rowHeight / 2)
+      cx += colWidths[i]
+    })
+    y += rowHeight
+  })
+
+  return dataUrlToBlob(canvas.toDataURL('image/png'))
 }
 
 const quickShareLinksToast = () => {
@@ -299,33 +307,47 @@ export async function shareRowsAsImage(
     return
   }
 
+  // Deliberately not awaiting anything before navigator.share() below — see
+  // dataUrlToBlob/rowsToImageBlob for why this whole block stays synchronous.
+  let blobs: Blob[]
+  let fileNames: string[]
   try {
     const pages = splitRowsIntoPages(rows)
-    const blobs = await Promise.all(
-      pages.map((pageRows, i) => {
-        const pageSubtitle =
-          pages.length > 1
-            ? [options?.subtitle, `Страница ${i + 1} из ${pages.length}`].filter(Boolean).join(' · ')
-            : options?.subtitle
-        return rowsToImageBlob(title, pageRows, { subtitle: pageSubtitle })
-      })
-    )
-    const fileNames = blobs.map((_, i) =>
-      blobs.length > 1 ? `${fileNameBase}_${i + 1}.png` : `${fileNameBase}.png`
-    )
+    blobs = pages.map((pageRows, i) => {
+      const pageSubtitle =
+        pages.length > 1
+          ? [options?.subtitle, `Страница ${i + 1} из ${pages.length}`].filter(Boolean).join(' · ')
+          : options?.subtitle
+      return rowsToImageBlob(title, pageRows, { subtitle: pageSubtitle })
+    })
+    fileNames = blobs.map((_, i) => (blobs.length > 1 ? `${fileNameBase}_${i + 1}.png` : `${fileNameBase}.png`))
+  } catch (error) {
+    console.error('Error rendering share image:', error)
+    toast.error('Произошла ошибка при подготовке изображения')
+    return
+  }
 
-    if (isMobileDevice() && typeof navigator.share === 'function') {
+  if (isMobileDevice() && typeof navigator.share === 'function') {
+    try {
       const files = blobs.map((blob, i) => new File([blob], fileNames[i], { type: 'image/png' }))
       if (navigator.canShare && navigator.canShare({ files })) {
         await navigator.share({ files, title })
         return
       }
+    } catch (error) {
+      if ((error as DOMException)?.name === 'AbortError') return
+      // navigator.share can reject for reasons outside our control (no compatible share
+      // target, a webview that half-implements the API, etc.) — fall back to a plain
+      // download instead of leaving the user with nothing.
+      console.error('navigator.share failed, falling back to download:', error)
     }
+  }
 
+  try {
     downloadForManualShare(blobs, fileNames)
   } catch (error) {
-    if ((error as DOMException)?.name === 'AbortError') return
-    console.error('Error sharing image:', error)
-    toast.error('Произошла ошибка при подготовке изображения')
+    console.error('Error downloading share image:', error)
+    const detail = error instanceof Error ? error.message : String(error)
+    toast.error(`Произошла ошибка при отправке изображения: ${detail}`)
   }
 }

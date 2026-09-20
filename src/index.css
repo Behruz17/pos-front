@@ -3,9 +3,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+:root {
+    color-scheme: light;
+}
+
 body{
     font-family: 'Onest', sans-serif;
         font-optical-sizing: auto;
-    
+
         font-style: normal;
+}
+
+input,
+select,
+textarea {
+    color-scheme: light;
+    background-color: #fff;
+    color: #0f172a;
 }

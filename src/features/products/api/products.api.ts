@@ -36,6 +36,14 @@ export const productsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Products', 'ProductDetails'],
     }),
+    patchProductCurrency: build.mutation<TDefaultResponse, { id: number; currency: string }>({
+      query: ({ id, currency }) => ({
+        url: `/products/${id}/currency`,
+        method: 'PATCH',
+        body: { currency },
+      }),
+      invalidatesTags: ['Products', 'ProductDetails'],
+    }),
     getMissingProducts: build.query<TMissingProduct[], void>({
       query: () => ({
         url: '/products/missing',
@@ -47,5 +55,11 @@ export const productsApi = baseApi.injectEndpoints({
   }),
 })
 
-export const { useGetProductsQuery, usePostProductMutation, useDeleteProductMutation, usePutProductMutation, useGetMissingProductsQuery } =
-  productsApi
+export const {
+  useGetProductsQuery,
+  usePostProductMutation,
+  useDeleteProductMutation,
+  usePutProductMutation,
+  usePatchProductCurrencyMutation,
+  useGetMissingProductsQuery,
+} = productsApi

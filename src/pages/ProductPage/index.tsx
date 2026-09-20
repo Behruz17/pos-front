@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Edit2, Package, Plus, Search, Trash2, Download, Printer, Share2, Loader2 } from 'lucide-react'
+import { Edit2, Package, Plus, Search, Trash2, Printer, Share2, Loader2 } from 'lucide-react'
 import { useDeleteProductMutation, useGetProductsQuery } from '@/features/products/api/products.api'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { formatDateTime } from '@/shared/formatDateTime'
@@ -8,6 +8,7 @@ import { Loading } from '@/shared/ui/Loading'
 import { CreateProductModal } from '@/widgets/modals/CreateProductModal'
 import { ProductImage } from '@/shared/ui/ProductImageю'
 import EditProductModal from '@/widgets/modals/EditProductModal'
+import { EditProductCurrencyPopover } from '@/widgets/modals/EditProductCurrencyPopover'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 import { getCurrencyDisplay } from '@/shared/utils/currencyUtils'
@@ -75,7 +76,6 @@ const ProductsPage = () => {
       '#': (index + 1).toString(),
       'Товар': product.name,
       'Артикул': product.product_code || '',
-      'Производитель': product.manufacturer || '—',
       'Поставщик': product.last_supplier_name || '—',
       'Валюта': getCurrencyDisplay(product.currency || 'somoni'),
       'Закупка': Number(product.purchase_cost || 0),
@@ -95,7 +95,6 @@ const ProductsPage = () => {
       '#': 'ИТОГО',
       'Товар': `Всего товаров: ${filtered.length}`,
       'Артикул': '',
-      'Производитель': '',
       'Поставщик': '',
       'Валюта': '',
       'Закупка': 0,
@@ -160,35 +159,47 @@ const ProductsPage = () => {
           <p className="text-sm text-slate-500">Полный список продукции</p>
         </div>
 
-        <div className="flex gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <button
             onClick={handleExcelExport}
             disabled={excelExporting || filtered.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Экспорт в Excel"
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 focus:ring-2 focus:ring-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
           >
-            <Download size={16} />
-            <span className="hidden sm:inline">{excelExporting ? 'Экспорт...' : 'Экспорт в Excel'}</span>
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            {excelExporting ? 'Экспорт...' : 'Экспорт'}
           </button>
 
           <button
             onClick={handlePrint}
             disabled={filtered.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
             title="Печать"
           >
             <Printer size={16} />
-            <span className="hidden sm:inline">Печать</span>
+            Печать
           </button>
 
           <button
             onClick={handleShare}
             disabled={sharing || filtered.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-xl hover:bg-slate-50 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
             title="Отправить"
           >
             {sharing ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
-            <span className="hidden sm:inline">{sharing ? 'Отправка...' : 'Отправить'}</span>
+            {sharing ? 'Отправка...' : 'Отправить'}
           </button>
 
           <div className="relative w-full sm:w-72">
@@ -247,14 +258,17 @@ const ProductsPage = () => {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-800 truncate text-sm sm:text-base">{p.name}</h3>
                     <div className="flex flex-col gap-1">
-                      <p className="text-xs text-slate-500 truncate">
-                        {p.manufacturer || <span className="text-slate-400">—</span>}
-                      </p>
                       <div className="text-xs text-slate-500">
                         <span className="text-slate-400">Артикул:</span> <span className="font-mono">{p.product_code}</span>
                       </div>
                       <div className="text-xs text-slate-500">
                         <span className="text-slate-400">Поставщик:</span> {p.last_supplier_name || <span className="text-slate-400">—</span>}
+                      </div>
+                      <div className="text-xs text-slate-500 flex items-center gap-1">
+                        <span className="text-slate-400">Валюта:</span> {getCurrencyDisplay(p.currency || 'somoni')}
+                        {isAdmin && (
+                          <EditProductCurrencyPopover productId={p.id} currency={p.currency} hasSupplier={Boolean(p.last_supplier_id)} />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -348,9 +362,6 @@ const ProductsPage = () => {
                   Артикул
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                  Производитель
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Поставщик
                 </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">
@@ -401,17 +412,14 @@ const ProductsPage = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="max-w-[150px]">
-                      <span className={`text-sm ${p.manufacturer ? 'text-slate-600' : 'text-slate-400 italic'}`}>
-                        {p.manufacturer || '—'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="max-w-[150px]">
+                    <div className="max-w-[150px] flex items-center gap-1.5">
                       <span className={`text-sm ${p.last_supplier_name ? 'text-slate-600' : 'text-slate-400 italic'}`}>
                         {p.last_supplier_name || '—'}
                       </span>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">({getCurrencyDisplay(p.currency || 'somoni')})</span>
+                      {isAdmin && (
+                        <EditProductCurrencyPopover productId={p.id} currency={p.currency} hasSupplier={Boolean(p.last_supplier_id)} />
+                      )}
                     </div>
                   </td>
 
