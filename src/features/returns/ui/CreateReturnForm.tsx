@@ -6,6 +6,7 @@ import { useGetStoresQuery } from '@/features/stores/api/stores.api'
 import { useGetCustomersQuery } from '@/features/customers/api/customers.api'
 import { useGetSalesQuery } from '@/features/sales/api/sales.api'
 import { toast } from 'sonner'
+import { QtyInput } from '@/shared/ui/QtyInput'
 
 interface TReturnItem {
   product_id: number
@@ -290,22 +291,14 @@ export const CreateReturnForm = () => {
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Количество</label>
 
-                <input
-                  type="text"
-                  inputMode="numeric"
+                <QtyInput
                   ref={(el) => {
                     if (refs.current[i]) {
                       refs.current[i].quantityRef.current = el
                     }
                   }}
-                  value={item.quantity === 1 ? '' : item.quantity}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/^0+(?=\d)/, '')
-                    const num = Number(value)
-                    if (!isNaN(num) && num > 0) {
-                      updateItem(i, { quantity: num })
-                    }
-                  }}
+                  value={item.quantity}
+                  onValueChange={(quantity) => updateItem(i, { quantity })}
                   onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />

@@ -195,8 +195,9 @@ export const CreateSaleModal = ({
                     placeholder={`Доступно: ${showTotalStock}`}
                     value={item.quantity}
                     onChange={(e) => {
-                      const v = e.target.value.trim()
-                      if (!/^\d*$/.test(v)) return
+                      const v = e.target.value.trim().replace(',', '.')
+                      // Fractional quantities are allowed (e.g. 0.5 pcs)
+                      if (!/^\d*(\.\d{0,3})?$/.test(v)) return
                       updateItem(i, { quantity: v })
                     }}
                     disabled={!product}

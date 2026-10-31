@@ -11,7 +11,8 @@ const receiptApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['Receipts', 'WarehouseStock'],
+      // Delivery cost entered in the receipt goes straight to the driver's operations and balance
+      invalidatesTags: ['Receipts', 'WarehouseStock', 'DeliveryOperations', 'Suppliers'],
     }),
     getReceipts: build.query<TReceiptGto[], void>({
       query: () => ({

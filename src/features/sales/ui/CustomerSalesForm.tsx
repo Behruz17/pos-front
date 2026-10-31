@@ -4,6 +4,7 @@ import { useCreateSaleMutation, useCreateSaleDraftMutation, useGetSaleDraftsQuer
 import { useGetProductsQuery } from '@/features/products/api/products.api'
 import { toast } from 'sonner'
 import type { TSaleDraft } from '../model/sales.types'
+import { QtyInput } from '@/shared/ui/QtyInput'
 
 interface TSaleItem {
   product_id: number
@@ -204,11 +205,11 @@ export const CustomerSalesForm = ({
       // Check if it's a stock error
       if (error?.data?.error && error.data.error.includes('Not enough stock')) {
         // Parse the error message to extract product information
-        const errorMatch = error.data.error.match(/product ID: (\d+).*?Requested: (\d+).*?Available: (\d+)/)
+        const errorMatch = error.data.error.match(/product ID: (\d+).*?Requested: ([\d.]+).*?Available: (-?[\d.]+)/)
         if (errorMatch) {
           const productId = parseInt(errorMatch[1])
-          const requested = parseInt(errorMatch[2])
-          const available = parseInt(errorMatch[3])
+          const requested = Number(errorMatch[2])
+          const available = Number(errorMatch[3])
           
           // Find the product name
           const product = products.find((p) => p.id === productId)
@@ -366,19 +367,10 @@ export const CustomerSalesForm = ({
 
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Количество</label>
-                <input
+                <QtyInput
                   ref={refs.current[i]?.quantityRef}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={item.quantity === 0 ? '' : item.quantity}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/^0+/, '') || '0'
-                    const numValue = Number(value)
-                    if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { quantity: numValue })
-                    }
-                  }}
+                  value={item.quantity}
+                  onValueChange={(quantity) => updateItem(i, { quantity })}
                   onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />

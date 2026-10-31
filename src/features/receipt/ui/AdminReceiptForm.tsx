@@ -11,11 +11,31 @@ import { toast } from 'sonner'
 import { printRows, shareRowsAsImage } from '@/shared/utils/documentActions'
 
 const num = (v: string) => (v ? Number(v) : 0)
+
+const CURRENCY_SHORT: Record<string, string> = { yuan: '¥', dollar: '$', somoni: 'сомони' }
 const onlyNumber = (v: string) => /^\d*(\.\d*)?$/.test(v)
 
-const calcSellingPrice = (purchase: string, markup: string) => {
+// Both rates are entered by the user:
+//   rateToUsd   — 1 $ = X of the supplier's currency (yuan 6.5, dollar 1)
+//   usdToSomoni — 1 $ = X somoni (9.3)
+// Example: 100 ¥ ÷ 6.5 × 9.3 = 143.08 смн, +20% delivery = 171.69, +10% markup = 188.86 → 189
+type TPricing = { rateToUsd: number; usdToSomoni: number; deliveryPct: number }
+
+const hasRates = (p: TPricing) => p.rateToUsd > 0 && p.usdToSomoni > 0
+
+// Purchase cost including the delivery share; in somoni when both rates are set,
+// otherwise in the supplier's currency (old behaviour)
+const calcLandedCost = (purchase: string, p: TPricing) => {
+  if (!purchase) return 0
+  const base = hasRates(p) ? (num(purchase) / p.rateToUsd) * p.usdToSomoni : num(purchase)
+  return base * (1 + p.deliveryPct / 100)
+}
+
+const calcSellingPrice = (purchase: string, markup: string, p: TPricing) => {
   if (!purchase) return ''
-  return (num(purchase) * (1 + num(markup) / 100)).toFixed(2)
+  const selling = calcLandedCost(purchase, p) * (1 + num(markup) / 100)
+  // Prices in somoni are rounded to whole somoni
+  return hasRates(p) ? String(Math.round(selling)) : selling.toFixed(2)
 }
 
 const calcAmount = (boxes: string, perBox: string, purchase: string, loose: string) => {
@@ -96,7 +116,30 @@ const AdminReceiptForm = ({
 
   const [supplierId, setSupplierId] = useState('')
   const [deliveryDriverId, setDeliveryDriverId] = useState('')
+  const [globalMarkup, setGlobalMarkup] = useState('')
+  const [rateToUsd, setRateToUsd] = useState('')
+  const [usdToSomoni, setUsdToSomoni] = useState('')
+  const [deliveryCost, setDeliveryCost] = useState('')
   const [items, setItems] = useState<(typeof emptyItem)[]>([emptyItem])
+
+  const supplierCurrency = suppliers.find((s) => s.id.toString() === supplierId)?.currency || ''
+
+  // Receipt total is in the supplier's currency; delivery (рохкиро) is always in USD
+  const totalAmount = items.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const rateToUsdNum = num(rateToUsd)
+  const usdToSomoniNum = num(usdToSomoni)
+  const totalUsd = rateToUsdNum > 0 ? totalAmount / rateToUsdNum : 0
+  const deliveryPct = totalUsd > 0 && deliveryDriverId ? (num(deliveryCost) / totalUsd) * 100 : 0
+
+  const pricedItems = useMemo(() => {
+    const pricing: TPricing = { rateToUsd: rateToUsdNum, usdToSomoni: usdToSomoniNum, deliveryPct }
+    return items.map((item) => ({
+      ...item,
+      landed_cost: item.purchase_cost ? calcLandedCost(item.purchase_cost, pricing).toFixed(2) : '',
+      selling_price: calcSellingPrice(item.purchase_cost, item.markup_percent, pricing),
+    }))
+  }, [items, rateToUsdNum, usdToSomoniNum, deliveryPct])
+  const pricesInSomoni = rateToUsdNum > 0 && usdToSomoniNum > 0
   const [selectedProductIndices, setSelectedProductIndices] = useState<Set<number>>(new Set())
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -167,19 +210,28 @@ const AdminReceiptForm = ({
           })
         }
 
-        const selling = calcSellingPrice(next.purchase_cost, next.markup_percent)
-
+        // selling_price is derived in pricedItems (depends on rates and delivery % of the whole receipt)
         return {
           ...next,
-          selling_price: selling,
           amount: calcAmount(next.boxes_qty, next.pieces_per_box, next.purchase_cost, next.loose_pieces),
         }
       })
     )
   }
 
+  // Apply the common markup to every row; rows can still be edited individually afterwards
+  const applyGlobalMarkup = (markup: string) => {
+    setGlobalMarkup(markup)
+    setItems((prev) =>
+      prev.map((item) => ({
+        ...item,
+        markup_percent: markup,
+      }))
+    )
+  }
+
   const addItem = () => {
-    setItems((p) => [...p, emptyItem])
+    setItems((p) => [...p, { ...emptyItem, markup_percent: globalMarkup }])
     // Clear selected state for the new item
     setSelectedProductIndices(prev => {
       const newSet = new Set(prev)
@@ -194,7 +246,7 @@ const AdminReceiptForm = ({
 
   const clearAllItems = () => {
     if (window.confirm('Вы уверены, что хотите очистить все товары?')) {
-      setItems([emptyItem])
+      setItems([{ ...emptyItem, markup_percent: globalMarkup }])
       setSelectedProductIndices(new Set())
     }
   }
@@ -328,9 +380,8 @@ const AdminReceiptForm = ({
               }
 
               // Calculate derived values
-              const sellingPrice = String(
-                row.selling_price || row['Цена прод.'] || row['цена прод'] || calcSellingPrice(purchaseCost, markupPercent)
-              )
+              // Selling price is always recalculated from purchase, rates, delivery and markup
+              const sellingPrice = ''
               const amount = String(
                 row.amount || row['Сумма'] || row['сумма'] || calcAmount(boxesQty, piecesPerBox, purchaseCost, loosePieces)
               )
@@ -403,13 +454,14 @@ const AdminReceiptForm = ({
 
   // Build the export rows shared by Excel export, print and share
   const buildReceiptExportData = (): Record<string, string | number>[] => {
-    const exportData: Record<string, string | number>[] = items.map((item, index) => ({
+    const exportData: Record<string, string | number>[] = pricedItems.map((item, index) => ({
       '#': (index + 1).toString(),
       'Товар': item.product_name || products.find(p => p.id.toString() === item.product_id)?.name || item.product_id || '',
       'Коробки': item.boxes_qty || 0,
       'Шт. в кор.': item.pieces_per_box || 0,
       'Отд. шт.': item.loose_pieces || 0,
       'Цена зак.': item.purchase_cost || 0,
+      'С дост.': item.landed_cost || 0,
       'Наценка %': item.markup_percent || 0,
       'Цена прод.': item.selling_price || 0,
       'Сумма': item.amount || 0,
@@ -429,6 +481,7 @@ const AdminReceiptForm = ({
       'Шт. в кор.': '',
       'Отд. шт.': '',
       'Цена зак.': '',
+      'С дост.': '',
       'Наценка %': '',
       'Цена прод.': '',
       'Сумма': totalAmount.toString(),
@@ -626,8 +679,10 @@ const AdminReceiptForm = ({
       }
 
       // Convert string values to numbers before sending (backend expects numbers)
-      const apiPayloadItems = updatedItems.map(item => ({
+      const apiPayloadItems = updatedItems.map((item, idx) => ({
         ...item,
+        // landed_cost is stored in somoni, so only when both rates are set
+        landed_cost: pricesInSomoni ? Number(pricedItems[idx].landed_cost) : null,
         product_id: Number(item.product_id),
         boxes_qty: Number(item.boxes_qty),
         pieces_per_box: Number(item.pieces_per_box),
@@ -635,7 +690,7 @@ const AdminReceiptForm = ({
         weight_kg: item.weight_kg ? Number(item.weight_kg) : 0,
         volume_cbm: item.volume_cbm ? Number(item.volume_cbm) : 0,
         purchase_cost: Number(item.purchase_cost),
-        selling_price: Number(item.selling_price),
+        selling_price: Number(pricedItems[idx].selling_price),
         amount: Number(item.amount),
         markup_percent: Number(item.markup_percent),
       })) as any; // Type assertion since backend expects different types
@@ -644,12 +699,20 @@ const AdminReceiptForm = ({
         warehouse_id: Number(preselectedWarehouseId), // Use preselected warehouse ID from props
         supplier_id: Number(supplierId),
         delivery_driver_id: deliveryDriverId ? Number(deliveryDriverId) : undefined,
+        // Delivery data goes straight to the driver's operations (editable there later)
+        delivery_cost: deliveryDriverId && num(deliveryCost) > 0 ? num(deliveryCost) : undefined,
+        rate_to_usd: rateToUsdNum > 0 ? rateToUsdNum : undefined,
+        usd_to_somoni: usdToSomoniNum > 0 ? usdToSomoniNum : undefined,
         items: apiPayloadItems,
       }).unwrap()
 
       toast.success('Приход успешно оформлен');
       setSupplierId('');
       setDeliveryDriverId('');
+      setGlobalMarkup('');
+      setRateToUsd('');
+      setUsdToSomoni('');
+      setDeliveryCost('');
       setItems([emptyItem]);
       setSelectedProductIndices(new Set());
     } catch (error) {
@@ -659,11 +722,6 @@ const AdminReceiptForm = ({
       setIsSubmitting(false)
     }
   }
-const totalAmount = items.reduce(
-  (sum, item) => sum + Number(item.amount || 0),
-  0
-);
-
   return (
     <div className="bg-gray-50 border rounded-2xl p-6 space-y-6">
 
@@ -671,7 +729,12 @@ const totalAmount = items.reduce(
         <label className="text-sm font-medium">Поставщик <span className="text-red-500">*</span></label>
         <select
           value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
+          onChange={(e) => {
+            setSupplierId(e.target.value)
+            // A dollar supplier needs no conversion to USD
+            const currency = suppliers.find((s) => s.id.toString() === e.target.value)?.currency
+            if (currency === 'dollar') setRateToUsd('1')
+          }}
           className="w-full border rounded-lg px-3 py-2.5"
         >
           <option value="">Выберите поставщика</option>
@@ -701,6 +764,85 @@ const totalAmount = items.reduce(
         {!preselectedWarehouseId && (
           <p className="text-xs text-gray-500 mt-1">Сначала выберите склад</p>
         )}
+      </div>
+
+      <div>
+        <label className="text-sm font-medium">Общая наценка %</label>
+        <input
+          value={globalMarkup}
+          onChange={(e) => {
+            if (!onlyNumber(e.target.value)) return
+            applyGlobalMarkup(e.target.value)
+          }}
+          className="w-full border rounded-lg px-3 py-2.5"
+          placeholder="Например, 20"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Применяется ко всем товарам. Для отдельного товара наценку можно изменить в его строке.
+        </p>
+      </div>
+
+      {/* Exchange rates and delivery (рохкиро) */}
+      <div className="bg-white border rounded-xl p-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="text-sm font-medium">
+              Курс: 1 $ = ? {CURRENCY_SHORT[supplierCurrency] || 'валюты поставщика'}
+            </label>
+            <input
+              value={rateToUsd}
+              onChange={(e) => {
+                if (!onlyNumber(e.target.value)) return
+                setRateToUsd(e.target.value)
+              }}
+              className="w-full border rounded-lg px-3 py-2.5"
+              placeholder="Например, 6.5"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Курс: 1 $ = ? сомони</label>
+            <input
+              value={usdToSomoni}
+              onChange={(e) => {
+                if (!onlyNumber(e.target.value)) return
+                setUsdToSomoni(e.target.value)
+              }}
+              className="w-full border rounded-lg px-3 py-2.5"
+              placeholder="Например, 9.3"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Рохкиро (доставка), $</label>
+            <input
+              value={deliveryCost}
+              onChange={(e) => {
+                if (!onlyNumber(e.target.value)) return
+                setDeliveryCost(e.target.value)
+              }}
+              disabled={!deliveryDriverId}
+              className="w-full border rounded-lg px-3 py-2.5 disabled:bg-gray-100"
+              placeholder={deliveryDriverId ? 'Можно заполнить позже' : 'Сначала выберите доставщика'}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-700">
+          <span>
+            Сумма прихода: <b>{totalAmount.toLocaleString()} {CURRENCY_SHORT[supplierCurrency] || ''}</b>
+          </span>
+          <span>
+            В долларах: <b>{totalUsd > 0 ? `${totalUsd.toFixed(2)} $` : '—'}</b>
+          </span>
+          <span>
+            Доставка: <b>{deliveryPct > 0 ? `${deliveryPct.toFixed(2)} %` : '—'}</b>
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-500">
+          Цена прод. = цена зак. ÷ курс к $ × курс сомони + % доставки + наценка, округляется до целых сомони.
+          {!pricesInSomoni && ' Пока оба курса не указаны, цена считается как раньше: цена зак. + наценка.'}
+          {num(deliveryCost) > 0 && !(rateToUsdNum > 0) && ' Укажите курс к $, чтобы посчитать % доставки.'}
+        </p>
       </div>
 
       {/* Operations toolbar */}
@@ -747,21 +889,22 @@ const totalAmount = items.reduce(
 
       {/* Items table header */}
       <div className="grid grid-cols-12 gap-2 bg-gray-100 border p-3 rounded-lg font-semibold text-sm hidden lg:grid">
-        <div className="col-span-3">Товар</div>
+        <div className="col-span-2">Товар</div>
         <div className="col-span-3 lg:col-span-1">Артикул</div>
         <div className="col-span-1">Коробки</div>
         <div className="col-span-1">Шт. в кор.</div>
         <div className="col-span-1">Отд. шт.</div>
         <div className="col-span-1">Цена зак.</div>
+        <div className="col-span-1">С дост.{pricesInSomoni ? ', смн' : ''}</div>
         <div className="col-span-1">Наценка %</div>
-        <div className="col-span-1">Цена прод.</div>
+        <div className="col-span-1">Цена прод.{pricesInSomoni ? ', смн' : ''}</div>
         <div className="col-span-1">Сумма</div>
         <div className="col-span-1">Действия</div>
       </div>
 
       {items.map((item, i) => (
         <div key={i} className="grid grid-cols-12 gap-2 bg-white border p-2 rounded-xl">
-          <div className="col-span-12 lg:col-span-3">
+          <div className="col-span-12 lg:col-span-2">
             <label className="text-xs text-gray-500 lg:hidden">Товар</label>
             <div className="relative">
               <input
@@ -962,6 +1105,17 @@ const totalAmount = items.reduce(
           </div>
 
           <div className="col-span-6 lg:col-span-1">
+            <label className="text-xs text-gray-500 lg:hidden">С дост.</label>
+            <input
+              value={pricedItems[i]?.landed_cost ?? ''}
+              readOnly
+              title={pricesInSomoni ? 'Себестоимость с доставкой, сомони' : 'Цена с доставкой, в валюте поставщика'}
+              className="w-full border bg-gray-100 rounded px-2 py-1.5 text-sm"
+              placeholder="0"
+            />
+          </div>
+
+          <div className="col-span-6 lg:col-span-1">
             <label className="text-xs text-gray-500 lg:hidden">Наценка %</label>
             <input
               ref={(el) => {
@@ -984,7 +1138,7 @@ const totalAmount = items.reduce(
           <div className="col-span-6 lg:col-span-1">
             <label className="text-xs text-gray-500 lg:hidden">Цена прод.</label>
             <input
-              value={item.selling_price}
+              value={pricedItems[i]?.selling_price ?? ''}
               readOnly
               className="w-full border bg-gray-100 rounded px-2 py-1.5 text-sm"
               placeholder="0"
@@ -1019,7 +1173,7 @@ const totalAmount = items.reduce(
         </div>
       ))}
       <div className="grid grid-cols-12 gap-2 bg-gray-100 border p-2 rounded-xl font-semibold text-sm mt-2">
-  <div className="col-span-12 lg:col-span-9 text-right flex items-center justify-end">
+  <div className="col-span-12 lg:col-span-10 text-right flex items-center justify-end">
     Итого:
   </div>
 

@@ -32,6 +32,9 @@ export type TCreateReceipt = {
   warehouse_id: number
   supplier_id: number
   delivery_driver_id?: number
+  delivery_cost?: number // рохкиро, USD
+  rate_to_usd?: number // 1 $ = X of the supplier's currency
+  usd_to_somoni?: number // 1 $ = X somoni
   items: TReceiptItem[]
 }
 

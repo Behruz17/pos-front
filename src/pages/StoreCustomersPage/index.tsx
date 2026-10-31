@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useCreateSaleMutation, useCreateSaleDraftMutation, useGetSaleDraftsQuery } from '@/features/sales/api/sales.api'
 import { useGetProductsQuery } from '@/features/products/api/products.api'
+import { QtyInput } from '@/shared/ui/QtyInput'
 
 import { SalesDetailModal } from '@/widgets/modals/SalesDetailModal'
 import { Trash2, PackagePlus, Download, Save, FileText, Printer, Share2, Loader2 } from 'lucide-react'
@@ -2316,14 +2317,14 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
       // Check if it's a stock error
       if (error?.data?.error && error.data.error.includes('Not enough stock')) {
         // Parse the error message to extract product information
-        const fullMatch = error.data.error.match(/product ID: (\d+).*?Requested: (\d+).*?Available: (\d+)/)
+        const fullMatch = error.data.error.match(/product ID: (\d+).*?Requested: ([\d.]+).*?Available: (-?[\d.]+)/)
         const partialMatch = error.data.error.match(/product ID: (\d+)/)
         
         if (fullMatch) {
           // Case 1: Full error with requested and available quantities
           const productId = parseInt(fullMatch[1])
-          const requested = parseInt(fullMatch[2])
-          const available = parseInt(fullMatch[3])
+          const requested = Number(fullMatch[2])
+          const available = Number(fullMatch[3])
           
           // Find the product name
           const product = products.find((p) => p.id === productId)
@@ -2599,23 +2600,14 @@ const StoreSalesForm = ({ initialStoreId, initialWarehouseId, onClose }: StoreSa
 
               <div className="col-span-6 lg:col-span-2">
                 <label className="text-xs text-gray-500 lg:hidden">Количество</label>
-                <input
+                <QtyInput
                   ref={(el) => {
                     if (refs.current[i]) {
                       refs.current[i].quantityRef.current = el
                     }
                   }}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={item.quantity === 0 ? '' : item.quantity}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/^0+/, '') || '0'
-                    const numValue = Number(value)
-                    if (!isNaN(numValue) && numValue >= 0) {
-                      updateItem(i, { quantity: numValue })
-                    }
-                  }}
+                  value={item.quantity}
+                  onValueChange={(quantity) => updateItem(i, { quantity })}
                   onKeyDown={(e) => handleKeyDown(e, i, 'quantity')}
                   className="w-full border rounded-lg px-3 py-2.5"
                 />
