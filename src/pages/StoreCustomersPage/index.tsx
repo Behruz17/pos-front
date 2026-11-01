@@ -179,22 +179,33 @@ export const StoreCustomersPage = () => {
 
   // Build the export rows shared by Excel export, print and share
   const buildStoreSalesExportData = () => {
-    const exportData = storeSales.map((sale, index) => ({
-      '#': (index + 1).toString(),
-      Дата: new Date(sale.created_at).toLocaleDateString('ru-RU'),
-      Клиент: sale.customer_name || '—',
-      Сумма: Number(sale.total_amount).toFixed(2),
-      'Статус оплаты': sale.payment_status === 'DEBT' ? 'В долг' : 'Оплачено',
-      Создал: sale.created_by_name || '—',
-    }))
+    // Same rows and order as the table on screen. These are operations (sale / payment / return),
+    // and their sum is in `amount` — `total_amount` does not exist here (it gave NaN before).
+    const exportData = [...storeSales]
+      .filter((t) => t.type === 'SALE' || t.type === 'PAYMENT' || t.type === 'RETURN')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .map((t, index) => ({
+        '#': (index + 1).toString(),
+        Дата: new Date(t.created_at).toLocaleDateString('ru-RU'),
+        Клиент: t.customer_name || '—',
+        Тип: t.type === 'SALE' ? 'Продажа' : t.type === 'RETURN' ? 'Возврат' : 'Оплата',
+        Сумма: Number(t.amount || 0).toFixed(2),
+        'Статус оплаты':
+          t.payment_status === 'REFUND'
+            ? 'Возврат'
+            : t.type === 'SALE' && t.payment_status === 'DEBT'
+              ? 'В долг'
+              : 'Оплачено',
+        Создал: t.created_by_name || '—',
+      }))
 
-    const totalSum = storeSales.reduce((total, sale) => total + (Number(sale.total_amount) || 0), 0)
-
+    // Total = sales minus returns (same as "Сумма продаж" on screen); payments are not sales
     exportData.push({
       '#': 'ИТОГО',
       Дата: '',
       Клиент: '',
-      Сумма: totalSum.toFixed(2),
+      Тип: 'Продажи − возвраты',
+      Сумма: totalSalesSum.toFixed(2),
       'Статус оплаты': '',
       Создал: '',
     })
