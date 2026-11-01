@@ -69,8 +69,21 @@ const ProductsPage = () => {
 
   const onDelete = async () => {
     if (!deleteId) return
-    await deleteProduct(deleteId).unwrap()
-    setDeleteId(null)
+    try {
+      await deleteProduct(deleteId).unwrap()
+      setDeleteId(null)
+      toast.success('Товар удалён')
+    } catch (err) {
+      // The server explains why (e.g. the product is still in stock); an older server answers in English
+      const message = (err as { data?: { error?: string } })?.data?.error
+      toast.error(
+        !message
+          ? 'Не удалось удалить товар. Попробуйте ещё раз'
+          : message.includes('currently in stock')
+            ? 'Нельзя удалить: товар есть на складе. Сначала спишите остаток со всех складов.'
+            : message,
+      )
+    }
   }
 
   // Build the export rows shared by Excel export, print and share
