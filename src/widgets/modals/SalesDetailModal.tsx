@@ -3,6 +3,7 @@ import { X, Package, Hash, Calendar, User, Coins, Download, Printer, Share2, Loa
 import * as XLSX from 'xlsx';
 import { Loading } from '@/shared/ui/Loading';
 import { printHtml, shareRowsAsImage } from '@/shared/utils/documentActions';
+import { customerDebtLine } from '@/shared/utils/customerDebt';
 
 
 import { useGetSaleByIdQuery } from '@/features/sales/api/sales.api';
@@ -28,6 +29,12 @@ export const SalesDetailModal = ({
     refetchOnMountOrArgChange: true,
   });
   const [sharing, setSharing] = useState(false);
+
+  // Only registered customers have a balance; retail sales have none
+  const debt =
+    saleData?.customer_id && saleData.customer_balance != null
+      ? customerDebtLine(Number(saleData.customer_balance))
+      : null;
 
   useEffect(() => {
     if (isOpen && saleId) {
@@ -75,9 +82,10 @@ export const SalesDetailModal = ({
       item.total_price
     ]);
 
-    const summaryData = [
+    const summaryData: (string | number)[][] = [
       ['', '', '', 'Итого:', saleData.total_amount]
     ];
+    if (debt) summaryData.push(['', '', '', `${debt.label}:`, debt.value]);
 
     const worksheetData = [...headerData, ...itemsData, ...summaryData];
 
@@ -144,6 +152,7 @@ export const SalesDetailModal = ({
             <td>Итого:</td>
             <td>${saleData.total_amount.toLocaleString()}</td>
           </tr>
+          ${debt ? `<tr class="total-row"><td></td><td></td><td></td><td>${debt.label}:</td><td>${debt.value.toLocaleString()}</td></tr>` : ''}
         </tbody>
       </table>
     `;
@@ -169,6 +178,16 @@ export const SalesDetailModal = ({
       'Цена': '',
       'Сумма': saleData.total_amount,
     });
+
+    if (debt) {
+      rows.push({
+        'Товар': debt.label,
+        'Артикул': '',
+        'Кол-во': '',
+        'Цена': '',
+        'Сумма': debt.value,
+      });
+    }
 
     setSharing(true);
     try {

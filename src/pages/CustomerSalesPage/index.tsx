@@ -10,6 +10,7 @@ import { CreateReturnModal } from '@/widgets/modals/CreateReturnModal'
 import * as XLSX from 'xlsx'
 import { toast } from 'sonner'
 import { printRows, shareRowsAsImage } from '@/shared/utils/documentActions'
+import { customerDebtLine } from '@/shared/utils/customerDebt'
 
 export const CustomerSalesPage = () => {
   const { customerId, storeId } = useParams<{ customerId: string; storeId: string }>()
@@ -70,6 +71,18 @@ export const CustomerSalesPage = () => {
       Тип: '',
       Магазин: '',
     })
+
+    // Current debt of the customer, so the client sees what is left to pay
+    if ('customer' in data) {
+      const debt = customerDebtLine(customerBalance)
+      exportData.push({
+        '#': debt.label,
+        Дата: '',
+        Сумма: debt.value.toFixed(2),
+        Тип: '',
+        Магазин: '',
+      })
+    }
 
     return exportData
   }

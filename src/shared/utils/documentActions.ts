@@ -41,7 +41,7 @@ export function printRows(
   const headers = Object.keys(rows[0])
   const tableRows = rows
     .map((row) => {
-      const isTotal = String(row[headers[0]] ?? '').toUpperCase() === 'ИТОГО'
+      const isTotal = isSummaryRow(row, headers)
       const cells = headers.map((h) => `<td>${row[h] ?? ''}</td>`).join('')
       return `<tr${isTotal ? ' class="total-row"' : ''}>${cells}</tr>`
     })
@@ -149,6 +149,12 @@ const dataUrlToBlob = (dataUrl: string): Blob => {
   return new Blob([bytes], { type: mime })
 }
 
+// Summary rows are drawn bold: the ИТОГО row and the customer debt line (see customerDebt.ts)
+const isSummaryRow = (row: Record<string, string | number>, headers: string[]) => {
+  const first = String(row[headers[0]] ?? '').toUpperCase()
+  return first === 'ИТОГО' || first.startsWith('ДОЛГ') || first.startsWith('ПЕРЕПЛАТА')
+}
+
 // A tall image is awkward to view in a chat (and risks hitting the browser's canvas size
 // limit), so long tables are split into several page-sized images instead of one giant one.
 const MAX_ROWS_PER_IMAGE = 40
@@ -159,9 +165,11 @@ const splitRowsIntoPages = (
   if (rows.length === 0) return []
 
   const headers = Object.keys(rows[0])
-  const lastRow = rows[rows.length - 1]
-  const hasTotalRow = String(lastRow[headers[0]] ?? '').toUpperCase() === 'ИТОГО'
-  const dataRows = hasTotalRow ? rows.slice(0, -1) : rows
+  // Trailing summary rows (ИТОГО, customer debt) stay together on the last page
+  let summaryStart = rows.length
+  while (summaryStart > 0 && isSummaryRow(rows[summaryStart - 1], headers)) summaryStart--
+  const summaryRows = rows.slice(summaryStart)
+  const dataRows = rows.slice(0, summaryStart)
 
   if (dataRows.length <= MAX_ROWS_PER_IMAGE) {
     return [rows]
@@ -171,8 +179,8 @@ const splitRowsIntoPages = (
   for (let i = 0; i < dataRows.length; i += MAX_ROWS_PER_IMAGE) {
     pages.push(dataRows.slice(i, i + MAX_ROWS_PER_IMAGE))
   }
-  if (hasTotalRow) {
-    pages[pages.length - 1] = [...pages[pages.length - 1], lastRow]
+  if (summaryRows.length) {
+    pages[pages.length - 1] = [...pages[pages.length - 1], ...summaryRows]
   }
   return pages
 }
@@ -247,7 +255,7 @@ const rowsToImageBlob = (
   y += headerHeight
 
   rows.forEach((row) => {
-    const isTotal = String(row[headers[0]] ?? '').toUpperCase() === 'ИТОГО'
+    const isTotal = isSummaryRow(row, headers)
     if (isTotal) {
       ctx.fillStyle = '#f8fafc'
       ctx.fillRect(padding, y, tableWidth, rowHeight)

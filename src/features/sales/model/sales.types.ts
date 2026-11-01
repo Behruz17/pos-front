@@ -13,6 +13,8 @@ export interface TSale {
   id: number
   customer_id?: number
   customer_name?: string
+  /** Current balance of the customer (now, not at the time of the sale); negative = debt */
+  customer_balance?: number | string | null
   store_id: number
   payment_status?: 'PAID' | 'DEBT' | 'REFUND'
   items: TSaleItem[]
