@@ -35,6 +35,7 @@ import ResellerPaymentModal from '@/widgets/modals/ResellerPaymentModal'
 import ResellerOperationsHistoryModal from '@/widgets/modals/ResellerOperationsHistoryModal'
 import { ResellerStatisticsModal } from '@/widgets/modals/ResellerStatisticsModal'
 import { CustomerStatisticsModal } from '@/widgets/modals/CustomerStatisticsModal'
+import { StoreIncomeChart } from './StoreIncomeChart'
 
 export const StoreCustomersPage = () => {
   const { storeId } = useParams<{ storeId: string }>()
@@ -828,6 +829,10 @@ export const StoreCustomersPage = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <StoreIncomeChart storeId={Number(storeId)} month={selectedMonth} year={selectedYear} />
             </div>
           </div>
         ) : activeTab === 'retailDebts' ? (

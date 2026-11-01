@@ -1,6 +1,6 @@
 import { baseApi } from '@/shared/request/baseApi'
 import type { TDefaultResponse } from '@/shared/types'
-import type { TStore, TCreateStore, TUpdateStore, TStoreWithCustomers, TStoreFinancialSummary, TAllStoresFinancialSummary } from '../model/stores.types'
+import type { TStore, TCreateStore, TUpdateStore, TStoreWithCustomers, TStoreFinancialSummary, TAllStoresFinancialSummary, TStoreIncomeChart } from '../model/stores.types'
 
 const storesApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -40,6 +40,13 @@ const storesApi = baseApi.injectEndpoints({
         method: 'GET',
       }),
       providesTags: ['Stores'],
+    }),
+    getStoreIncomeChart: build.query<TStoreIncomeChart, { storeId: number; month?: number; year?: number }>({
+      query: ({ storeId, month, year }) => ({
+        url: `/stores/${storeId}/income-chart`,
+        method: 'GET',
+        params: { ...(month ? { month } : {}), ...(year ? { year } : {}) },
+      }),
     }),
     getStoreFinancialSummary: build.query<TStoreFinancialSummary, {storeId: number, month?: number, year?: number}>({
       query: ({storeId, month, year}) => {
@@ -81,5 +88,6 @@ export const {
   useDeleteStoreMutation,
   useGetStoreCustomersQuery,
   useGetStoreFinancialSummaryQuery,
+  useGetStoreIncomeChartQuery,
   useGetAllStoresFinancialSummaryQuery
 } = storesApi

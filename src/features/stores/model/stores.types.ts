@@ -49,3 +49,22 @@ export interface TAllStoresFinancialSummary {
   stores: TStoreFinancialSummary[];
   total_stores: number;
 }
+
+export type TStoreIncomeChartItem = {
+  /** YYYY-MM-DD for days, YYYY-MM for months */
+  key: string
+  cash: number
+  debt_payments: number
+  total: number
+  cash_count: number
+  payments_count: number
+}
+
+export type TStoreIncomeChart = {
+  store_id: number
+  year: number
+  month: number | null
+  granularity: 'day' | 'month'
+  totals: { cash: number; debt_payments: number; total: number }
+  items: TStoreIncomeChartItem[]
+}
