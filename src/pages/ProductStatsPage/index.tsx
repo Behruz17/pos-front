@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { paths } from '@/app/routers/constants'
 import ButtonBack from '@/shared/ui/ButtonBack'
 import { Loading } from '@/shared/ui/Loading'
+import { TopProfitChart } from './TopProfitChart'
 
 // Local date as YYYY-MM-DD (toISOString would shift the day by the timezone)
 const toDateStr = (d: Date) =>
@@ -231,6 +232,8 @@ const ProductStatsPage = () => {
               </div>
             </div>
           )}
+
+          <TopProfitChart items={data.items} />
 
           {/* Filters */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
