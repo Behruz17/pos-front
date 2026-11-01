@@ -22,6 +22,7 @@ import StoreCustomersPage from '@/pages/StoreCustomersPage'
 import CustomerSalesPage from '@/pages/CustomerSalesPage'
 import MissingProductsPage from '@/pages/MissingProductsPage'
 import ExpensesPage from '@/pages/ExpensesPage'
+import ProductStatsPage from '@/pages/ProductStatsPage'
 
 export const router = createBrowserRouter([
   {
@@ -75,6 +76,10 @@ export const router = createBrowserRouter([
       {
         path: paths.products(),
         element: <ProductsPage />,
+      },
+      {
+        path: paths.productStats(),
+        element: <ProductStatsPage />,
       },
       {
         path: paths.stores(),

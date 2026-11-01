@@ -1,5 +1,12 @@
 import { baseApi } from '@/shared/request/baseApi'
-import type { TPostProductResponseSuccess, TProductDto, TPutProductCredentials, TMissingProduct } from '../model/products.types'
+import type {
+  TPostProductResponseSuccess,
+  TProductDto,
+  TPutProductCredentials,
+  TMissingProduct,
+  TProductStatsParams,
+  TProductStatsResponse,
+} from '../model/products.types'
 import { productDtoSchema, missingProductSchema } from '../model/products.schemas'
 import type { TDefaultResponse } from '@/shared/types'
 
@@ -52,6 +59,15 @@ export const productsApi = baseApi.injectEndpoints({
       transformResponse: (response) => missingProductSchema.array().parse(response),
       providesTags: ['Products'],
     }),
+    getProductStatistics: build.query<TProductStatsResponse, TProductStatsParams>({
+      query: (params) => ({
+        url: '/products/statistics',
+        method: 'GET',
+        // Drop empty values so the backend treats them as "not set"
+        params: Object.fromEntries(Object.entries(params).filter(([, v]) => v)),
+      }),
+      providesTags: ['Products'],
+    }),
   }),
 })
 
@@ -62,4 +78,5 @@ export const {
   usePutProductMutation,
   usePatchProductCurrencyMutation,
   useGetMissingProductsQuery,
+  useGetProductStatisticsQuery,
 } = productsApi

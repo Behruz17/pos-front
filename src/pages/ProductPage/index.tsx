@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Edit2, Package, Plus, Search, Trash2, Printer, Share2, Loader2 } from 'lucide-react'
+import { Edit2, Package, Plus, Search, Trash2, Printer, Share2, Loader2, BarChart3 } from 'lucide-react'
+import { useNavigate } from 'react-router'
+import { paths } from '@/app/routers/constants'
 import { useDeleteProductMutation, useGetProductsQuery } from '@/features/products/api/products.api'
 import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { formatDateTime } from '@/shared/formatDateTime'
@@ -17,6 +19,7 @@ import { printRows, shareRowsAsImage } from '@/shared/utils/documentActions'
 const ProductsPage = () => {
   const { data: products = [], isLoading } = useGetProductsQuery()
   const { isAdmin } = useAuth()
+  const navigate = useNavigate()
   const [editProduct, setEditProduct] = useState<null | {
     id: number
     name: string
@@ -160,6 +163,16 @@ const ProductsPage = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          {isAdmin && (
+            <button
+              onClick={() => navigate(paths.productStats())}
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 transition-colors duration-200"
+            >
+              <BarChart3 size={16} />
+              Статистика
+            </button>
+          )}
+
           <button
             onClick={handleExcelExport}
             disabled={excelExporting || filtered.length === 0}

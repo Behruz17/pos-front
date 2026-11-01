@@ -38,3 +38,41 @@ export type TMissingProduct = {
   total_stock: number
   last_supplier_id: number | null
 }
+
+export type TProductStatsItem = {
+  product_id: number
+  name: string
+  product_code: string | null
+  image: string | null
+  deleted: boolean
+  stock: number
+  received: number
+  sold_qty: number
+  returned_qty: number
+  revenue: number
+  unit_cost: number | null
+  cost: number | null
+  profit: number | null
+  profit_percent: number | null
+}
+
+export type TProductStatsResponse = {
+  from: string | null
+  to: string | null
+  totals: {
+    stock: number
+    received: number
+    sold_qty: number
+    revenue: number
+    cost: number
+    profit: number
+    profit_percent: number | null
+    products_without_cost: number
+  }
+  items: TProductStatsItem[]
+}
+
+export type TProductStatsParams = {
+  from?: string
+  to?: string
+}
