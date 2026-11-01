@@ -1,6 +1,64 @@
 import { X, BarChart3, ShoppingCart, Wallet, Scale } from 'lucide-react'
 import { useState } from 'react'
 import { useGetCustomerOperationsQuery } from '@/features/customers/api/customers.api'
+import { IncomeChart, type TIncomeChartGranularity, type TIncomeChartItem } from '@/shared/ui/IncomeChart'
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * Money received from the customer(s), bucketed for the chart, by the same rule as the store chart:
+ * cash = purchases paid at once (PAID), debt payments = PAYMENT. Debts and returns are not money in.
+ * Year + month → days, only year → months, otherwise → years.
+ */
+const buildIncomeItems = (
+  operations: { type: string; sum: number | string; date: string }[],
+  year?: number,
+  month?: number,
+): { granularity: TIncomeChartGranularity; items: TIncomeChartItem[] } => {
+  const granularity: TIncomeChartGranularity = year && month ? 'day' : year ? 'month' : 'year'
+
+  // Local date of the operation (dates come as UTC timestamps)
+  const keyOf = (date: string) => {
+    const d = new Date(date)
+    if (granularity === 'day') return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    if (granularity === 'month') return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+    return String(d.getFullYear())
+  }
+
+  const money = operations.filter((op) => op.type === 'PAID' || op.type === 'PAYMENT')
+
+  // Every day / month of the period is shown, even with zero; years — from the first to the last one with money
+  let keys: string[]
+  if (granularity === 'day') {
+    const days = new Date(year!, month!, 0).getDate()
+    keys = Array.from({ length: days }, (_, i) => `${year}-${pad(month!)}-${pad(i + 1)}`)
+  } else if (granularity === 'month') {
+    keys = Array.from({ length: 12 }, (_, i) => `${year}-${pad(i + 1)}`)
+  } else {
+    const years = money.map((op) => new Date(op.date).getFullYear())
+    const from = years.length ? Math.min(...years) : new Date().getFullYear()
+    const to = years.length ? Math.max(...years) : from
+    keys = Array.from({ length: to - from + 1 }, (_, i) => String(from + i))
+  }
+
+  const byKey = new Map<string, TIncomeChartItem>(
+    keys.map((key) => [key, { key, cash: 0, debt_payments: 0, total: 0, cash_count: 0, payments_count: 0 }]),
+  )
+  for (const op of money) {
+    const item = byKey.get(keyOf(op.date))
+    if (!item) continue
+    const sum = Number(op.sum || 0)
+    if (op.type === 'PAID') {
+      item.cash += sum
+      item.cash_count += 1
+    } else {
+      item.debt_payments += sum
+      item.payments_count += 1
+    }
+    item.total += sum
+  }
+  return { granularity, items: [...byKey.values()] }
+}
 
 interface CustomerStatisticsModalProps {
   isOpen: boolean
@@ -15,7 +73,7 @@ export const CustomerStatisticsModal = ({ isOpen, onClose, storeId, customerId, 
   const [selectedYear, setSelectedYear] = useState<number | undefined>(currentYear)
   const [selectedMonth, setSelectedMonth] = useState<number | undefined>(new Date().getMonth() + 1)
 
-  const { data, isLoading, isError } = useGetCustomerOperationsQuery(
+  const { data, isLoading, isError, isFetching } = useGetCustomerOperationsQuery(
     { store_id: storeId, customerId, year: selectedYear, month: selectedMonth },
     { skip: !isOpen }
   )
@@ -34,9 +92,19 @@ export const CustomerStatisticsModal = ({ isOpen, onClose, storeId, customerId, 
 
   const remainingSum = purchaseSum - paymentSum
 
+  const chart = buildIncomeItems(operations, selectedYear, selectedMonth)
+  const chartPeriodTitle =
+    chart.granularity === 'day'
+      ? new Date(selectedYear!, selectedMonth! - 1, 1).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+      : chart.granularity === 'month'
+        ? `${selectedYear} год`
+        : selectedMonth
+          ? `${new Date(2023, selectedMonth - 1, 1).toLocaleString('ru-RU', { month: 'long' })}, все годы`
+          : 'все годы'
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div>
@@ -101,6 +169,7 @@ export const CustomerStatisticsModal = ({ isOpen, onClose, storeId, customerId, 
           ) : operations.length === 0 ? (
             <div className="text-center py-12 text-slate-500">Нет операций за выбранный период</div>
           ) : (
+            <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                 <div className="flex items-center gap-3">
@@ -143,6 +212,15 @@ export const CustomerStatisticsModal = ({ isOpen, onClose, storeId, customerId, 
                   </div>
                 </div>
               </div>
+            </div>
+
+            <IncomeChart
+              granularity={chart.granularity}
+              items={chart.items}
+              periodTitle={chartPeriodTitle}
+              description={`Полученные деньги от ${customerId ? 'клиента' : 'клиентов'}: оплачено сразу при покупке и оплаты долга.`}
+              isFetching={isFetching}
+            />
             </div>
           )}
         </div>
