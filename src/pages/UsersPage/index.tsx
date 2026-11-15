@@ -5,19 +5,26 @@ import { useAuth } from '@/features/auth/hooks/auth.hooks'
 import { useGetStoresQuery } from '@/features/stores/api/stores.api'
 import { formatDateTime } from '@/shared/formatDateTime'
 import { Loading } from '@/shared/ui/Loading'
+import DeleteModal from '@/widgets/modals/DeleteModal'
 import { Trash2, User, Shield } from 'lucide-react'
+import { useState } from 'react'
 
 import { useNavigate } from 'react-router'
 
 const UsersPage = () => {
   const { data: users, isLoading, isError, error } = useGetUsersQuery()
-  const [deleteUser] = useDeleteUserMutation()
+  const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation()
+  const [deleteId, setDeleteId] = useState<number | null>(null)
   const navigate = useNavigate()
   const { isAdmin, me } = useAuth()
   const { data: stores = [] } = useGetStoresQuery()
-  const onDelete = async (id?: number) => {
-    if (!id) return
-    await deleteUser(id).unwrap()
+  const onDelete = async () => {
+    if (!deleteId) return
+    try {
+      await deleteUser(deleteId).unwrap()
+    } finally {
+      setDeleteId(null)
+    }
   }
 
   // Helper function to get store name by ID
@@ -85,7 +92,7 @@ const UsersPage = () => {
                       <td className="px-4 py-3 text-right">
                         {u.id !== me?.id && (
                           <button
-                            onClick={() => onDelete(u.id)}
+                            onClick={() => setDeleteId(u.id)}
                             className="inline-flex items-center text-slate-400 hover:text-red-600 transition"
                           >
                             <Trash2 size={16} />
@@ -124,7 +131,7 @@ const UsersPage = () => {
                 {isAdmin && u.id !== me?.id && (
                   <div className="flex justify-end pt-2">
                     <button
-                      onClick={() => onDelete(u.id)}
+                      onClick={() => setDeleteId(u.id)}
                       className="inline-flex items-center gap-1 text-red-600 text-sm"
                     >
                       <Trash2 size={14} />
@@ -136,6 +143,10 @@ const UsersPage = () => {
             ))}
           </div>
         </>
+      )}
+
+      {deleteId && isAdmin && (
+        <DeleteModal isLoading={isDeleting} onClose={() => setDeleteId(null)} onDelete={onDelete} />
       )}
 
       <UserForm />
